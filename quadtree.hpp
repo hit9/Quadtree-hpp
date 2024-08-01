@@ -51,22 +51,20 @@ struct ObjectKeyHasher {
   std::size_t operator()(const ObjectKey& k) const;
 };
 
-// SaturationTester is the type of the function to check if a node is saturated.
-// If a leaf node is saturated, it continues to split down.
-// If a non-leaf node is not saturated, it merges its children up.
-// In-Simple: Returns true if you want the node to continu to split.
+// SplitingStopper is the type of the function to check if a node should stop to split.
 // The parameters here:
 //  w (int): the node's rectangle's width.
 //  h (int): the node's rectangle's height.
 //  n (int): the number of objects managed by the node.
 // What's more, if the w and h are both 1, it stops to split anyway.
 // Examples:
-//  1. to split into small rectangles not too small (e.g. >=10x10)
-//        [](int w, int h, int n) { return w > 10 && h > 10; };
+//  1. to split into small rectangles not too small (e.g. at least 10x10)
+//        [](int w, int h, int n) { return w <= 10 && h <= 10; };
 //  2. to split into small rectangles contains less than q objects (e.g. q=10)
-//        [](int w, int h, int n) { return n >= 10; };
-using SaturationTester = std::function<bool(int w, int h, int n)>;
+//        [](int w, int h, int n) { return n < 10; };
+using SplitingStopper = std::function<bool(int w, int h, int n)>;
 
+// Objects is the container to store object pointers and their positions.
 using Objects = std::unordered_set<ObjectKey, ObjectKeyHasher>;
 
 // The structure of a tree node.
@@ -101,7 +99,8 @@ struct Node {
 class __Quadtree {
  protected:
   using collector_t = std::function<void(void*)>;
-  __Quadtree(int w, int h, SaturationTester st = nullptr);
+  using visitor_t = std::function<void(Node*)>;
+  __Quadtree(int w, int h, SplitingStopper ssf = nullptr);
   ~__Quadtree();
   std::pair<NodeId, Node*> find(int x, int y);
   void build(std::function<void*(int x, int y)> get);  // TODO: ref?
@@ -109,28 +108,32 @@ class __Quadtree {
   void remove(int x, int y, void* o);
   void queryNode(NodeId id, collector_t& collector);
   void queryRange(int x1, int y1, int x2, int y2, collector_t& collector);
-  int getNumNodes() { return m.size(); }
-  int getNumObjects() { return n; }
-  int getNumLeafNodes() { return numLeafNodes; }
+  void foreachLeafNode(visitor_t visitor);
+  void foreachNode(visitor_t visitor);
+  inline int getNumNodes() { return m.size(); }
+  inline int getNumObjects() { return numObjects; }
+  inline int getNumLeafNodes() { return numLeafNodes; }
+  inline int getDepth() { return maxd; }
 
  private:
   Node* root = nullptr;
   // width and height of the whole region.
   int w, h;
   // maxd is the current maximum depth.
-  // nmanxd is how many nodes reaches the max depth.
-  int maxd = 0, nmaxd = 0;
+  int maxd = 0;
+  // numDepthTable records many nodes reaches every depth.
+  int numDepthTable[MAX_DEPTH];
   // the number of objects in this tree.
-  int n = 0;
+  int numObjects = 0;
   // the number of leaf nodes in this tree.
   int numLeafNodes = 0;
-  // the function to test if a node is saturated.
-  SaturationTester st = nullptr;
+  // the function to test if a node should stop to split.
+  SplitingStopper ssf = nullptr;
   // cache the mappings between id and the node.
   std::unordered_map<NodeId, Node*> m;
   // ~~~~~~~~~~~ Internals ~~~~~~~~~~~~
   Node* parentOf(Node* node);
-  bool check(int x1, int y1, int x2, int y2, int n1);
+  bool splitable(int x1, int y1, int x2, int y2, int n1);
   Node* createNode(bool isLeaf, int d, int x1, int y1, int x2, int y2);
   void removeLeafNode(Node* node);
   void trySplitDown(Node* node);
@@ -140,13 +143,13 @@ class __Quadtree {
 };
 
 // Quadtree on a rectangle with width w and height h, storing the pointers to Object.
-template <typename Object>
+template <typename Object = void>
 class Quadtree : public __Quadtree {
  public:
   // Collector is the function that can collect pointers to the managed objects.
   using Collector = std::function<void(Object*)>;
 
-  Quadtree(int w, int h, SaturationTester st = nullptr) : __Quadtree(w, h, st) {}
+  Quadtree(int w, int h, SplitingStopper ssf = nullptr) : __Quadtree(w, h, ssf) {}
   ~Quadtree() { __Quadtree::~__Quadtree(); }
 
   // Returns the total number of objects managed by this tree.
@@ -155,6 +158,8 @@ class Quadtree : public __Quadtree {
   int NumNodes() { return getNumNodes(); }
   // Returns the number of leaf nodes in this tree.
   int NumLeafNodes() { return getNumLeafNodes(); }
+  // Returns the depth of the tree.
+  int Depth() { return getDepth(); }
   // Find the leaf node managing given position (x,y), returns the id of the found node.
   // If the given position crosses the bound, the behavior is undefined.
   // We use binary-search for optimization, the time complexity is O(log Depth).
