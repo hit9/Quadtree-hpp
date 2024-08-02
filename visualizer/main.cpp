@@ -10,7 +10,7 @@
 const int GRID_SIZE = 24;
 
 // Max value of w and h.
-const int N = 60;
+const int N = 80;
 
 // Grids to render, 0 for empty, 1 for object.
 int GRIDS[N][N];
@@ -101,7 +101,7 @@ int ParseOptionsFromCommandline(int argc, char* argv[], Options& options) {
     return 1;
   }
   if (options.w > N || options.h > N) {
-    spdlog::error("w or h is too large");
+    spdlog::error("w or h is too large to render a window");
     return 2;
   }
   return 0;
