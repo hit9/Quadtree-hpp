@@ -120,6 +120,11 @@ template <typename Object, typename ObjectHasher = std::hash<Object>>
 using Visitor = std::function<void(Node<Object, ObjectHasher>*)>;
 
 // Quadtree on a rectangle with width w and height h, storing the objects.
+// The type parameter Object is the type of the objects to store on this tree.
+// Object is required to be comparable (the operator== must be available).
+// e.g. Quadtree<int>, Quadtree<Entity*>, Quadtree<void*>
+// We store the objects into an unordered_set along with its position,
+// the hashing of a object is handled by the second type parameter ObjectHasher.
 template <typename Object, typename ObjectHasher = std::hash<Object>>
 class Quadtree {
  public:
@@ -131,7 +136,7 @@ class Quadtree {
   Quadtree(int w, int h, SplitingStopper ssf = nullptr);
   ~Quadtree();
 
-  // Returns the depth of the tree.
+  // Returns the depth of the tree, starting from 0.
   int Depth() const { return maxd; }
   // Returns the total number of objects managed by this tree.
   int NumObjects() const { return numObjects; }
@@ -162,7 +167,7 @@ class Quadtree {
   // lower-right corners of the given rectangle.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
-  // Traverse all nodes recursively.
+  // Traverse all nodes in this tree.
   // The order is unstable between two traverses.
   // To traverse only the leaf nodes, you may filter by the `node->isLeaf` attribute.
   void ForEachNode(VisitorT& visitor) const;
@@ -193,6 +198,7 @@ class Quadtree {
   void tryMergeUp(NodeT* node);
   NodeT* splitHelper1(int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
   void splitHelper2(NodeT* node);
+  void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
 };
 
 // ~~~~~~~~~~~ Implementation ~~~~~~~~~~~~~
@@ -410,6 +416,70 @@ void Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
   tryMergeUp(parent);
 }
 
+// AABB overlap testing.
+// Check if rectangle ((ax1, ay1), (ax2, ay2)) and ((bx1,by1), (bx2, by2)) overlaps.
+inline bool isOverlap(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2) {
+  // clang-format off
+  //  (ax1,ay1)
+  //      +--------------+
+  //   A  |    (bx1,by1) |
+  //      |       +------|-------+
+  //      +-------+------+       |   B
+  //              |    (ax2,ay2) |
+  //              +--------------+ (bx2, by2)
+  //
+  // Ref: https://silentmatt.com/rectangle-intersection/
+  //
+  // ax1 < bx2 => A's upper boundary is above B's bottom boundary.
+  // ax2 > bx1 => A's bottom boundary is below B's upper boundary.
+  //
+  //                ***********  B's upper                      A's upper    -----------
+  //   A's upper    -----------                       OR                     ***********  B's upper
+  //                ***********  B's bottom                     A's bottom   -----------
+  //   A's bottom   -----------                                              ***********  B's bottom
+  //
+  // ay1 < by2 => A's left boundary is on the left of B's right boundary.
+  // ay2 > by1 => A's right boundary is on the right of B's left boundary.
+  //
+  //           A's left         A's right                  A's left        A's right
+  //
+  //      *       |       *       |              OR           |       *       |        * 
+  //      *       |       *       |                           |       *       |        *
+  //      *       |       *       |                           |       *       |        *
+  //  B's left        B's right                                    B's left          B's right
+  //
+  // We can also see that, swapping the roles of A and B, the formula remains unchanged.
+  //
+  // clang-format on
+  //
+  // And we are processing overlapping on integeral coordinates, the (x1,y1) and (x2,y2) are
+  // considered inside the rectangle. so we use <= and >= instead of < and >.
+  return ax1 <= bx2 && ax2 >= bx1 && ay1 <= by2 && ay2 >= by1;
+}
+
+// Query objects located in given rectangle in the given node.
+template <typename Object, typename ObjectHasher>
+void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collector, int x1, int y1,
+                                                int x2, int y2) const {
+  if (node == nullptr) return;
+  // AABB overlap test.
+  if (!isOverlap(node->x1, node->y1, node->x2, node->y2, x1, y1, x2, y2)) return;
+
+  if (!node->isLeaf) {
+    // recursively down to the children.
+    for (int i = 0; i < 4; i++) {
+      queryRange(node->children[i], collector, x1, y1, x2, y2);
+    }
+    return;
+  }
+
+  // Collects objects inside the rectangle for this leaf node.
+  for (auto [x, y, o] : node->objects)
+    if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+      collector(o);
+    }
+}
+
 // Using binary search to guess the depth of the target node.
 // Reason: the id = (d, x*2^d/h, y*2^d/w), it's the same for all (x,y) inside the same
 // node. If id(d,x,y) is not found in the map m, the guessed depth is too large, we should
@@ -475,6 +545,18 @@ void Quadtree<Object, ObjectHasher>::Build() {
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
   for (auto [_, node] : m) visitor(node);
+}
+
+template <typename Object, typename ObjectHasher>
+void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
+                                                CollectorT& collector) const {
+  queryRange(root, collector, x1, y1, x2, y2);
+}
+
+template <typename Object, typename ObjectHasher>
+void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
+                                                CollectorT&& collector) const {
+  queryRange(root, collector, x1, y1, x2, y2);
 }
 
 }  // namespace quadtree
