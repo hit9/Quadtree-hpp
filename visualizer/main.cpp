@@ -124,7 +124,7 @@ int Visualizer::Init() {
   }
   // Creates window.
   int window_w = options.w * GRID_SIZE;
-  int window_h = options.w * GRID_SIZE;
+  int window_h = options.h * GRID_SIZE;
   window = SDL_CreateWindow("quadtree visualizer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                             window_w, window_h, SDL_WINDOW_SHOWN);
   if (window == nullptr) {
@@ -279,7 +279,7 @@ void Visualizer::draw() {
       int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
       int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
       SDL_Rect rect = {x, y, w, h};
-      auto [r, g, b, a] = colors[id % 17];
+      auto [r, g, b, a] = colors[(id + node->d) % 17];
       SDL_SetRenderDrawColor(renderer, r, g, b, a);
       SDL_RenderFillRect(renderer, &rect);
     }
