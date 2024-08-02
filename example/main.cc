@@ -4,7 +4,8 @@
 
 int main(void) {
   quadtree::SplitingStopper ssf = [](int w, int h, int n) { return w <= 2 && h <= 2; };
-  quadtree::Quadtree tree(6, 6, ssf);
+  quadtree::Quadtree<int> tree(6, 6, ssf);
+  tree.Build();
   //  tree.Add(1, 1, nullptr);
   //  tree.Add(2, 2, nullptr);
   //  tree.Remove(1, 1, nullptr);

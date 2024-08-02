@@ -6,4 +6,4 @@ set(CMAKE_CXX_STANDARD 20)
 include_directories("..")
 
 # Targets
-add_executable(quadtree_example main.cc ../quadtree.cpp)
+add_executable(quadtree_example main.cc)
