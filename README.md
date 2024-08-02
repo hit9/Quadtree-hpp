@@ -5,13 +5,10 @@ A quadtree implementation working on grid rectangles in C++.
 
 ## Screenshots
 
-Working on a square:
 
-![](misc/images/quadtree-square.gif)
-
-Working on a rectangle:
-
-![](misc/images/quadtree-rectangle.gif)
+| <!-- -->                                           | <!-- -->                                                      |
+| -------------------------------------------------- | ------------------------------------------------------------- |
+| Sqaure: ![](misc/images/quadtree-square.gif)       | Rectangle *: ![](misc/images/quadtree-rectangle.gif)          |
 
 ## Installation
 
