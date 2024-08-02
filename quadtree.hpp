@@ -27,7 +27,7 @@ namespace quadtree {
 // The maximum width and height of the entire rectangular region.
 const int MAX_SIDE = (1 << 29) - 1;
 // The maximum depth of a quadtree.
-const int MAX_DEPTH = 63;
+const int MAX_DEPTH = 29;
 
 using std::uint64_t;
 
@@ -129,7 +129,7 @@ using Collector = std::function<void(Object)>;
 
 // Visitor is the function that can access a quadtree node.
 template <typename Object, typename ObjectHasher = std::hash<Object>>
-using Visitor = std::function<void(Node<Object, ObjectHasher>*)>;
+using Visitor = std::function<void(NodeId, Node<Object, ObjectHasher>*)>;
 
 // Quadtree on a rectangle with width w and height h, storing the objects.
 // The type parameter Object is the type of the objects to store on this tree.
@@ -273,6 +273,7 @@ Quadtree<Object, ObjectHasher>::~Quadtree() {
 // The node passed in here should guarantee not be root.
 template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::parentOf(NodeT* node) const {
+  if (node == nullptr || node == root || node->d == 0) return nullptr;
   return m.at(pack(node->d - 1, node->x1, node->y1, w, h));
 }
 
@@ -313,6 +314,7 @@ void Quadtree<Object, ObjectHasher>::removeLeafNode(NodeT* node) {
   if (node->d == maxd) {
     // If we are removing a leaf node at the largest depth
     // We need to maintain the maxd, it may change.
+    // the iterations will certainly smaller than MAX_DEPTH (29);
     while (numDepthTable[maxd] == 0) --maxd;
   }
   // Finally delete this node.
@@ -352,6 +354,8 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
   // Creates a non-leaf node if the rectangle is able to split,
   // and then continue to split down recursively.
   auto node = createNode(false, d, x1, y1, x2, y2);
+  // Add the objects to this node temply, it will finally be stealed
+  // by the its descendant leaf nodes.
   node->objects.swap(objs);
   splitHelper2(node);
   return node;
@@ -408,23 +412,44 @@ void Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
   if (node == root) return;
   // We can only merge from the leaf node.
   if (!node->isLeaf) return;
+
   // The parent of this leaf node.
   auto parent = parentOf(node);
+  if (parent == nullptr) return;
+
+  // We can only merge if all the brothers are all leaf nodes.
+  for (int i = 0; i < 4; i++) {
+    auto child = parent->children[i];
+    if (child != nullptr && !child->isLeaf) {
+      return;
+    }
+  }
+
   // Count the objects inside the parent.
   int n = 0;
-  for (int i = 0; i < 4; i++) n += parent->children[i]->objects.size();
+  for (int i = 0; i < 4; i++) {
+    auto child = parent->children[i];
+    if (child != nullptr) {
+      n += child->objects.size();
+    }
+  }
+
   // Check if the parent node should be a leaf node now.
   // If it's still splitable, then it should stay be a non-leaf node.
   if (splitable(parent->x1, parent->y1, parent->x2, parent->y2, n)) return;
+
   // Merges the managed objects up into the parent's objects.
   for (int i = 0; i < 4; i++) {
-    for (const auto& k : parent->children[i]->objects) {
-      parent->objects.insert(k);
+    auto child = parent->children[i];
+    if (child != nullptr) {
+      for (const auto& k : child->objects) {
+        parent->objects.insert(k);  // copy
+      }
+      removeLeafNode(child);
+      parent->children[i] = nullptr;
     }
-    removeLeafNode(parent->children[i]);
-    parent->children[i] = nullptr;
   }
-  // It's now turns to be a leaf node.
+  // this parent node now turns to be leaf node.
   parent->isLeaf = true;
   ++numLeafNodes;
   // Continue the merging to the parent, until the root or some parent is splitable.
@@ -559,7 +584,7 @@ void Quadtree<Object, ObjectHasher>::Build() {
 
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
-  for (auto [_, node] : m) visitor(node);
+  for (auto [id, node] : m) visitor(id, node);
 }
 
 template <typename Object, typename ObjectHasher>
