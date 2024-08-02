@@ -124,8 +124,9 @@ struct Node {
 };
 
 // Collector is the function that can collect the managed objects.
+// The arguments is (x,y,object);
 template <typename Object>
-using Collector = std::function<void(Object)>;
+using Collector = std::function<void(int, int, Object)>;
 
 // Visitor is the function that can access a quadtree node.
 template <typename Object, typename ObjectHasher = std::hash<Object>>
@@ -177,6 +178,7 @@ class Quadtree {
   // Query the objects inside given rectangular range, the given collector will be called
   // for each object hits. The parameters (x1,y1) and (x2,y2) are the upper-left and
   // lower-right corners of the given rectangle.
+  // Does nothing if x1 <= x2 && y1 <= y2 is not satisfied.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
   // Traverse all nodes in this tree.
@@ -516,7 +518,7 @@ void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collect
   // Collects objects inside the rectangle for this leaf node.
   for (auto [x, y, o] : node->objects)
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-      collector(o);
+      collector(x, y, o);
     }
 }
 
@@ -590,13 +592,14 @@ void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT& collector) const {
+  if (!(x1 <= x2 && y1 <= y2)) return;
   queryRange(root, collector, x1, y1, x2, y2);
 }
 
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT&& collector) const {
-  queryRange(root, collector, x1, y1, x2, y2);
+  QueryRange(x1, y1, x2, y2, collector);
 }
 
 }  // namespace quadtree
