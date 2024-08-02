@@ -1,5 +1,17 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
+//
+//
+// Coordinate conventions:
+//
+//           w
+//    +---------------> y
+//    |
+// h  |
+//    |
+//    v
+//    x
+//
 
 #ifndef HIT9_QUADTREE_HPP
 #define HIT9_QUADTREE_HPP
@@ -191,7 +203,7 @@ class Quadtree {
 
   // ~~~~~~~~~~~ Internals ~~~~~~~~~~~~~
   NodeT* parentOf(NodeT* node) const;
-  bool splitable(int x1, int y1, int x2, int y2, int n1) const;
+  bool splitable(int x1, int y1, int x2, int y2, int n) const;
   NodeT* createNode(bool isLeaf, int d, int x1, int y1, int x2, int y2);
   void removeLeafNode(NodeT* node);
   void trySplitDown(NodeT* node);
@@ -261,7 +273,7 @@ Quadtree<Object, ObjectHasher>::~Quadtree() {
 // The node passed in here should guarantee not be root.
 template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::parentOf(NodeT* node) const {
-  return m[pack(node->d - 1, node->x1, node->y1, w, h)];
+  return m.at(pack(node->d - 1, node->x1, node->y1, w, h));
 }
 
 // Indicates whether given rectangle with n number of objects inside it is splitable.
@@ -326,9 +338,11 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
     auto [x, y, o] = k;
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
       objs.insert(k);
-      upstreamObjects.erase(k);
     }
   }
+  // Erase from upstreamObjects.
+  // An object should alwasy go to only one branch.
+  for (const auto& k : objs) upstreamObjects.erase(k);
   // Creates a leaf node if the rectangle is not able to split any more.
   if (!splitable(x1, y1, x2, y2, objs.size())) {
     auto node = createNode(true, d, x1, y1, x2, y2);
@@ -489,7 +503,7 @@ void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collect
 // this whole tree.
 template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::Find(int x, int y) const {
-  int l = 0, r = maxd - 1;
+  int l = 0, r = maxd;
   while (l <= r) {
     int d = (l + r) >> 1;
     auto id = pack(d, x, y, w, h);
