@@ -352,6 +352,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
   // Creates a non-leaf node if the rectangle is able to split,
   // and then continue to split down recursively.
   auto node = createNode(false, d, x1, y1, x2, y2);
+  node->objects.swap(objs);
   splitHelper2(node);
   return node;
 }
