@@ -190,7 +190,7 @@ class Quadtree {
  private:
   NodeT* root = nullptr;
   // width and height of the whole region.
-  int w, h;
+  const int w, h;
   // maxd is the current maximum depth.
   int maxd = 0;
   // numDepthTable records many nodes reaches every depth.
@@ -269,7 +269,7 @@ Quadtree<Object, ObjectHasher>::~Quadtree() {
   delete root;
   root = nullptr;
   memset(numDepthTable, 0, sizeof numDepthTable);
-  w = 0, h = 0, maxd = 0, numLeafNodes = 0, numObjects = 0;
+  maxd = 0, numLeafNodes = 0, numObjects = 0;
 }
 
 // Returns the parent of given non-root node.
@@ -346,7 +346,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
     }
   }
   // Erase from upstreamObjects.
-  // An object should alwasy go to only one branch.
+  // An object should always go to only one branch.
   for (const auto& k : objs) upstreamObjects.erase(k);
   // Creates a leaf node if the rectangle is not able to split any more.
   if (!splitable(x1, y1, x2, y2, objs.size())) {
