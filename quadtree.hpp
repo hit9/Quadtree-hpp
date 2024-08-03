@@ -1,6 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
+// BSD license. Chao Wang, Version: 0.1.0
 //
 // Coordinate conventions:
 //
