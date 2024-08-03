@@ -8,14 +8,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 file(GLOB SOURCES *.cpp)
 add_executable(quadtree-visualizer ${SOURCES})
 
-find_package(SDL2_image)
-find_package(SDL2_ttf)
 find_package(SDL2)
 find_package(spdlog)
 find_package(argparse)
 
 include_directories("..")
 
-target_link_libraries(
-    quadtree-visualizer SDL2_image::SDL2_image sdl_ttf::sdl_ttf SDL2::SDL2main
-    spdlog::spdlog argparse::argparse)
+target_link_libraries(quadtree-visualizer SDL2::SDL2main spdlog::spdlog
+    argparse::argparse)

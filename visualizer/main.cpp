@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <spdlog/spdlog.h>
 
 #include <argparse/argparse.hpp>
@@ -116,12 +115,6 @@ int Visualizer::Init() {
     spdlog::error("SDL init error: {}", SDL_GetError());
     return -1;
   }
-  // Init IMG
-  if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
-    spdlog::error("SDL_image init error: {}", IMG_GetError());
-    SDL_Quit();
-    return -2;
-  }
   // Creates window.
   int window_w = options.w * GRID_SIZE;
   int window_h = options.h * GRID_SIZE;
@@ -129,7 +122,6 @@ int Visualizer::Init() {
                             window_w, window_h, SDL_WINDOW_SHOWN);
   if (window == nullptr) {
     spdlog::error("Create window error: {}", SDL_GetError());
-    IMG_Quit();
     SDL_Quit();
     return -3;
   }
@@ -138,7 +130,6 @@ int Visualizer::Init() {
   if (renderer == nullptr) {
     spdlog::error("Create renderer error: {}", SDL_GetError());
     SDL_DestroyWindow(window);
-    IMG_Quit();
     SDL_Quit();
     return -1;
   }
@@ -152,7 +143,6 @@ int Visualizer::Init() {
 void Visualizer::Destroy() {
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
-  IMG_Quit();
   SDL_Quit();
 }
 
