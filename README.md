@@ -56,7 +56,7 @@ tree.QueryRange(x1, y1, x2, y2, [](int x, int y, Object* o) {
 });
 
 // Visit every leaf node.
-tree.ForEachNode([](quadtree::NodeId id, quadtree::Node<Object*>* node) {
+tree.ForEachNode([](quadtree::Node<Object*>* node) {
   if (node->isLeaf) {
     // if node is a leaf, visit its objects
     for (auto [x, y, o]: node->objects) {

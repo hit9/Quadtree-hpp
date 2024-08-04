@@ -260,8 +260,7 @@ const SDL_Color colors[17] = {
 
 void Visualizer::draw() {
   // Draw leaf node's rectangles background.
-  quadtree::Visitor<int> visitor1 = [this](quadtree::NodeId id,
-                                           quadtree::Node<int>* node) -> void {
+  quadtree::Visitor<int> visitor1 = [this](quadtree::Node<int>* node) -> void {
     if (node->isLeaf) {
       // SDL coordinates
       int x = node->y1 * GRID_SIZE;
@@ -269,7 +268,7 @@ void Visualizer::draw() {
       int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
       int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
       SDL_Rect rect = {x, y, w, h};
-      auto [r, g, b, a] = colors[(id + node->d) % 17];
+      auto [r, g, b, a] = colors[(node->id + node->d) % 17];
       SDL_SetRenderDrawColor(renderer, r, g, b, a);
       SDL_RenderFillRect(renderer, &rect);
     }
@@ -292,8 +291,7 @@ void Visualizer::draw() {
   }
 
   // Draw leaf node's border line.
-  quadtree::Visitor<int> visitor2 = [this](quadtree::NodeId id,
-                                           quadtree::Node<int>* node) -> void {
+  quadtree::Visitor<int> visitor2 = [this](quadtree::Node<int>* node) -> void {
     if (node->isLeaf) {
       // SDL coordinates
       int x = node->y1 * GRID_SIZE;
