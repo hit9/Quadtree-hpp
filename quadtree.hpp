@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.1.0
+// BSD license. Chao Wang, Version: 0.1.1
 //
 // Coordinate conventions:
 //
@@ -209,8 +209,8 @@ class Quadtree {
   bool splitable(int x1, int y1, int x2, int y2, int n) const;
   NodeT* createNode(bool isLeaf, int d, int x1, int y1, int x2, int y2);
   void removeLeafNode(NodeT* node);
-  void trySplitDown(NodeT* node);
-  void tryMergeUp(NodeT* node);
+  bool trySplitDown(NodeT* node);
+  bool tryMergeUp(NodeT* node);
   NodeT* splitHelper1(int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
   void splitHelper2(NodeT* node);
   void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
@@ -398,33 +398,37 @@ void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node) {
 }
 
 // try to split given leaf node if possible.
+// Returns true if the spliting happens.
 template <typename Object, typename ObjectHasher>
-void Quadtree<Object, ObjectHasher>::trySplitDown(NodeT* node) {
+bool Quadtree<Object, ObjectHasher>::trySplitDown(NodeT* node) {
   if (node->isLeaf && splitable(node->x1, node->y1, node->x2, node->y2, node->objects.size())) {
     splitHelper2(node);
+    return true;
   }
+  return false;
 }
 
 // A non-leaf node should stay in a not-splitable state, if given leaf node's parent turns to
 // not-splitable, we merge the node with its brothers into this parent.
 // Does nothing if this node itself is the root.
 // Does nothing if this node itself is not a leaf node.
+// Returns true if the merging happens.
 template <typename Object, typename ObjectHasher>
-void Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
+bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
   // The root stops to merge up.
-  if (node == root) return;
+  if (node == root) return false;
   // We can only merge from the leaf node.
-  if (!node->isLeaf) return;
+  if (!node->isLeaf) return false;
 
   // The parent of this leaf node.
   auto parent = parentOf(node);
-  if (parent == nullptr) return;
+  if (parent == nullptr) return false;
 
   // We can only merge if all the brothers are all leaf nodes.
   for (int i = 0; i < 4; i++) {
     auto child = parent->children[i];
     if (child != nullptr && !child->isLeaf) {
-      return;
+      return false;
     }
   }
 
@@ -439,7 +443,7 @@ void Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
 
   // Check if the parent node should be a leaf node now.
   // If it's still splitable, then it should stay be a non-leaf node.
-  if (splitable(parent->x1, parent->y1, parent->x2, parent->y2, n)) return;
+  if (splitable(parent->x1, parent->y1, parent->x2, parent->y2, n)) return false;
 
   // Merges the managed objects up into the parent's objects.
   for (int i = 0; i < 4; i++) {
@@ -457,6 +461,7 @@ void Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
   ++numLeafNodes;
   // Continue the merging to the parent, until the root or some parent is splitable.
   tryMergeUp(parent);
+  return true;
 }
 
 // AABB overlap testing.
@@ -559,8 +564,8 @@ void Quadtree<Object, ObjectHasher>::Add(int x, int y, Object o) {
   auto [_, inserted] = node->objects.insert({x, y, o});
   if (inserted) {
     ++numObjects;
-    // try to split down if possible.
-    trySplitDown(node);
+    // At most only one of "split and merge" will be performed.
+    trySplitDown(node) || tryMergeUp(node);
   }
 }
 
@@ -574,8 +579,8 @@ void Quadtree<Object, ObjectHasher>::Remove(int x, int y, Object o) {
   // remove the object from this node.
   if (node->objects.erase({x, y, o}) > 0) {
     --numObjects;
-    // try to merge up.
-    tryMergeUp(node);
+    // At most only one of "split and merge" will be performed.
+    tryMergeUp(node) || trySplitDown(node);
   }
 }
 
