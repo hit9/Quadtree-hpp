@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.1.1
+// BSD license. Chao Wang, Version: 0.1.2
 //
 // Coordinate conventions:
 //
@@ -147,7 +147,8 @@ class Quadtree {
   using VisitorT = Visitor<Object, ObjectHasher>;
   using ObjectsT = Objects<Object, ObjectHasher>;
 
-  Quadtree(int w, int h, SplitingStopper ssf = nullptr);
+  Quadtree(int w, int h, SplitingStopper ssf = nullptr, VisitorT afterLeafCreated = nullptr,
+           VisitorT beforeLeafRemoved = nullptr);
   ~Quadtree();
 
   // Returns the depth of the tree, starting from 0.
@@ -207,6 +208,8 @@ class Quadtree {
   SplitingStopper ssf = nullptr;
   // cache the mappings between id and the node.
   std::unordered_map<NodeId, NodeT*> m;
+  // callback functions
+  VisitorT afterLeafCreated = nullptr, beforeLeafRemoved = nullptr;
 
   // ~~~~~~~~~~~ Internals ~~~~~~~~~~~~~
   NodeT* parentOf(NodeT* node) const;
@@ -261,9 +264,23 @@ Node<Object, ObjectHasher>::~Node() {
   }
 }
 
+// Constructs a quadtree.
+// Where w and h is the width and height of the whole rectangular region.
+// ssf is the function to determine whether to stop split a leaf node.
+// The afterLeafCreated is a callback function to be called after a leaf node is created, or after
+// a non-leaf node turns to a leaf node.
+// The beforeLeafRemoved is a callback function to be called
+// before a leaf node is removed or a leaf node turns to a non-leaf node.
+// Notes that the beforeLeafRemoved won't be called on the whole quadtree's
+// destruction.
 template <typename Object, typename ObjectHasher>
-Quadtree<Object, ObjectHasher>::Quadtree(int w, int h, SplitingStopper ssf)
-    : w(w), h(h), ssf(ssf) {
+Quadtree<Object, ObjectHasher>::Quadtree(int w, int h, SplitingStopper ssf,
+                                         VisitorT afterLeafCreated, VisitorT beforeLeafRemoved)
+    : w(w),
+      h(h),
+      ssf(ssf),
+      afterLeafCreated(afterLeafCreated),
+      beforeLeafRemoved(beforeLeafRemoved) {
   memset(numDepthTable, 0, sizeof numDepthTable);
 }
 
@@ -301,11 +318,13 @@ template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::createNode(bool isLeaf, int d, int x1,
                                                                        int y1, int x2, int y2) {
   auto node = new NodeT(isLeaf, d, x1, y1, x2, y2);
-  m.insert({pack(d, x1, y1, w, h), node});
+  auto id = pack(d, x1, y1, w, h);
+  m.insert({id, node});
   if (isLeaf) ++numLeafNodes;
   // maintains the max depth.
   maxd = std::max(maxd, d);
   ++numDepthTable[d];
+  if (isLeaf && afterLeafCreated != nullptr) afterLeafCreated(id, node);
   return node;
 }
 
@@ -314,8 +333,10 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::createNode(bool isLe
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::removeLeafNode(NodeT* node) {
   if (!node->isLeaf) return;
+  auto id = pack(node->d, node->x1, node->y1, w, h);
+  if (beforeLeafRemoved != nullptr) beforeLeafRemoved(id, node);
   // Remove from the global table.
-  m.erase(pack(node->d, node->x1, node->y1, w, h));
+  m.erase(id);
   // maintains the max depth.
   --numDepthTable[node->d];
   if (node->d == maxd) {
@@ -396,8 +417,13 @@ void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node) {
 
   // anyway, it's not a leaf node any more.
   if (node->isLeaf) {
-    node->isLeaf = false;
+    if (beforeLeafRemoved != nullptr) {
+      // FIXME: may we remove the id construction here?
+      auto id = pack(node->d, node->x1, node->y1, node->x2, node->y2);
+      beforeLeafRemoved(id, node);
+    }
     --numLeafNodes;
+    node->isLeaf = false;
   }
 }
 
@@ -463,6 +489,10 @@ bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
   // this parent node now turns to be leaf node.
   parent->isLeaf = true;
   ++numLeafNodes;
+  if (afterLeafCreated != nullptr) {
+    auto id = pack(parent->d, parent->x1, parent->y1, parent->x2, parent->y2);
+    afterLeafCreated(id, parent);
+  }
   // Continue the merging to the parent, until the root or some parent is splitable.
   tryMergeUp(parent);
   return true;
