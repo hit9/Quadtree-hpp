@@ -168,11 +168,15 @@ class Quadtree {
   NodeT* Find(int x, int y) const;
   // Add an object located at position (x,y) to the right leaf node.
   // And split down if the node is able to continue the spliting after the insertion.
+  // Or merge up if the node's parent is able to be a leaf node instead.
+  // At most one of "potential spliting and merge" will happen.
   // Does nothing if the given position is out of boundary.
   // Dose nothing if this object already exist at given position.
   void Add(int x, int y, Object o);
-  // Remove the managed object located at position (x,y), and then try to merge the
-  // corresponding leaf node with its brothers, if possible.
+  // Remove the managed object located at position (x,y).
+  // And then try to merge the corresponding leaf node with its brothers, if possible.
+  // Or try to split down if the node's parent is able to be a leaf node itself.
+  // At most one of "potential spliting and merge" will happen.
   // Does nothing if the given position crosses the boundary.
   // Dose nothing if this object dose not exist at given position.
   void Remove(int x, int y, Object o);
