@@ -16,6 +16,9 @@ A quadtree implementation working on a grid rectangle region in C++.
 | -------------------------------------------------- | ----------------------------------------------------------- |
 | Square: ![](misc/images/quadtree-square.gif)       | Rectangle: ![](misc/images/quadtree-rectangle.gif)          |
 
+
+中文博客: https://writings.sh/post/quadtree
+
 ## Installation
 
 Copy away `quadtree.hpp`.
@@ -97,6 +100,7 @@ Visualizer's operations:
 2. Click the **right mouse button** to figure the left-upper corner of the query region,
    and then right click again to figure the right-botton corner to query the objects that inside this rectangle region.
 3. `ESC` or `Ctrl-C` to quit.
+
 
 ### License
 
