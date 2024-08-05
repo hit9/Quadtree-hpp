@@ -346,3 +346,15 @@ TEST_CASE("hook functions") {
   tree.Remove(2, 2, 1);
   REQUIRE(tree.NumLeafNodes() == cnt);
 }
+
+TEST_CASE("large 10wx10w") {
+  quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+  quadtree::Quadtree<int> tree(1e5, 1e5, ssf);
+  tree.Build();
+  tree.Add(0, 0, 1);
+  // Find (0,0)
+  auto node = tree.Find(0, 0);
+  REQUIRE(node->x1 == 0);
+  REQUIRE(node->y1 == 0);
+  REQUIRE(node->d == tree.Depth());
+}
