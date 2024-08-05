@@ -191,6 +191,9 @@ class Quadtree {
   // In case of out-of-boundary, we shrink the range inside the whole region.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
+  // Find the smallest node covering the given query rectangula range.
+  // The time complexity is O(log Depth).
+  NodeT* FindSmallestNodeCoveringRange(int x1, int y1, int x2, int y2) const;
   // Traverse all nodes in this tree.
   // The order is unstable between two traverses.
   // To traverse only the leaf nodes, you may filter by the `node->isLeaf` attribute.
@@ -225,7 +228,6 @@ class Quadtree {
   NodeT* splitHelper1(int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
   void splitHelper2(NodeT* node);
   void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
-  NodeT* findRangeNode(int x1, int y1, int x2, int y2) const;
 };
 
 // ~~~~~~~~~~~ Implementation ~~~~~~~~~~~~~
@@ -560,36 +562,6 @@ void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collect
     }
 }
 
-// Using binary search to guess the smallest node that contains the given rectangle range.
-// The key is to guess a largest depth d, where the id(d,x1,y1) and id(d,x2,y2) got the same node.
-// Undefined behavior if the given range is out of boundary at any axis.
-// The time complexity is O(log Depth)
-template <typename Object, typename ObjectHasher>
-Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::findRangeNode(int x1, int y1, int x2,
-                                                                          int y2) const {
-  int l = 0, r = maxd;
-  NodeT* node = root;
-  while (l < r) {
-    int d = (l + r + 1) >> 1;
-    auto id1 = pack(d, x1, y1, w, h);
-    auto id2 = pack(d, x2, y2, w, h);
-    // We should track the largest d and corresponding node that satisfies both:
-    // id1==id2 and the node is exist.
-    if (id1 == id2) {
-      auto it = m.find(id1);
-      if (it != m.end()) {
-        l = d;
-        node = it->second;
-        continue;
-      }
-    }
-    // Otherwise, the d is too large, skip this answer.
-    // Makes the upper bound smaller.
-    r = d - 1;
-  }
-  return node;
-}
-
 // Using binary search to guess the depth of the target node.
 // Reason: the id = (d, x*2^d/h, y*2^d/w), it's the same for all (x,y) inside the same
 // node. If id(d,x,y) is not found in the map m, the guessed depth is too large, we should
@@ -657,12 +629,41 @@ void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
   for (auto [id, node] : m) visitor(node);
 }
 
+// Using binary search to guess the smallest node that contains the given rectangle range.
+// The key is to guess a largest depth d, where the id(d,x1,y1) and id(d,x2,y2) got the same node.
+// Undefined behavior if the given range is out of boundary at any axis.
+template <typename Object, typename ObjectHasher>
+Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCoveringRange(
+    int x1, int y1, int x2, int y2) const {
+  int l = 0, r = maxd;
+  NodeT* node = root;
+  while (l < r) {
+    int d = (l + r + 1) >> 1;
+    auto id1 = pack(d, x1, y1, w, h);
+    auto id2 = pack(d, x2, y2, w, h);
+    // We should track the largest d and corresponding node that satisfies both:
+    // id1==id2 and the node is exist.
+    if (id1 == id2) {
+      auto it = m.find(id1);
+      if (it != m.end()) {
+        l = d;
+        node = it->second;
+        continue;
+      }
+    }
+    // Otherwise, the d is too large, skip this answer.
+    // Makes the upper bound smaller.
+    r = d - 1;
+  }
+  return node;
+}
+
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT& collector) const {
   if (!(x1 <= x2 && y1 <= y2)) return;
   x1 = std::max(0, x1), y1 = std::max(0, y1), x2 = std::min(x2, h - 1), y2 = std::min(y2, w - 1);
-  auto node = findRangeNode(x1, y1, x2, y2);
+  auto node = FindSmallestNodeCoveringRange(x1, y1, x2, y2);
   queryRange(node, collector, x1, y1, x2, y2);
 }
 
