@@ -358,3 +358,42 @@ TEST_CASE("large 10wx10w") {
   REQUIRE(node->y1 == 0);
   REQUIRE(node->d == tree.Depth());
 }
+
+TEST_CASE("FindSmallestNodeCoveringRange 12x8") {
+  quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+  quadtree::Quadtree<int> tree(12, 8, ssf);
+  tree.Build();
+  // Add (3,3)
+  tree.Add(3, 3, 0);
+  // Find (2,3),(3,5)
+  auto a = tree.FindSmallestNodeCoveringRange(2, 3, 3, 5);
+  REQUIRE(a != nullptr);
+  REQUIRE(a->d == 2);
+  REQUIRE(a->x1 == 2);
+  REQUIRE(a->y1 == 3);
+  // Find (3,4),(3,4)
+  auto b = tree.FindSmallestNodeCoveringRange(3, 4, 3, 4);
+  REQUIRE(b != nullptr);
+  REQUIRE(b->d == 4);
+  REQUIRE(b->x1 == 3);
+  REQUIRE(b->y1 == 4);
+  // Find (3,5),(2,3)
+  auto a1 = tree.FindSmallestNodeCoveringRange(3, 5, 2, 3);
+  REQUIRE(a1 == a);
+  // Find (1,1),(4,6)
+  auto d = tree.FindSmallestNodeCoveringRange(1, 1, 4, 6);
+  REQUIRE(d != nullptr);
+  REQUIRE(d->d == 0);   // root
+  REQUIRE(d->id == 0);  // root
+
+  // Out of boundary
+  auto e = tree.FindSmallestNodeCoveringRange(-1, -1, 13, 9);
+  REQUIRE(d != nullptr);
+  REQUIRE(d->d == 0);   // root
+  REQUIRE(d->id == 0);  // root
+  // Out of boundary
+  auto f = tree.FindSmallestNodeCoveringRange(144, 144, 144, 144);
+  REQUIRE(f != nullptr);
+  REQUIRE(f->d == 0);   // root
+  REQUIRE(f->id == 0);  // root
+}

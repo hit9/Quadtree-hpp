@@ -188,11 +188,17 @@ class Quadtree {
   // for each object hits. The parameters (x1,y1) and (x2,y2) are the upper-left and
   // lower-right corners of the given rectangle.
   // Does nothing if x1 <= x2 && y1 <= y2 is not satisfied.
-  // In case of out-of-boundary, we shrink the range inside the whole region.
+  // In case of out-of-boundary, we shrink the range inside the whole region at first.
+  // We first locate the smallest node that contains the given rectangular range, and then query
+  // its descendant leaf nodes overlaping with this range recursively, and finally collects the
+  // objects inside this range from these leaf nodes.
+  // Time complexity: O(log D + N), where N is the number of nodes under the node found, which is
+  // worst to be the total tree's nodes.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
   // Find the smallest node covering the given query rectangula range.
-  // The time complexity is O(log Depth).
+  // Returns root node if any corner if the given range is out-of-boundary.
+  // The time complexity is O(log D), where D is the depth of the tree.
   NodeT* FindSmallestNodeCoveringRange(int x1, int y1, int x2, int y2) const;
   // Traverse all nodes in this tree.
   // The order is unstable between two traverses.
@@ -642,7 +648,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCove
     auto id1 = pack(d, x1, y1, w, h);
     auto id2 = pack(d, x2, y2, w, h);
     // We should track the largest d and corresponding node that satisfies both:
-    // id1==id2 and the node is exist.
+    // id1==id2 and the node at this id is exist.
     if (id1 == id2) {
       auto it = m.find(id1);
       if (it != m.end()) {
@@ -655,6 +661,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCove
     // Makes the upper bound smaller.
     r = d - 1;
   }
+  // If out-of-boundary, the l won't be updated, the node stays at root.
   return node;
 }
 
