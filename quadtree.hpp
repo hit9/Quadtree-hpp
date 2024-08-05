@@ -17,6 +17,7 @@
 #ifndef HIT9_QUADTREE_HPP
 #define HIT9_QUADTREE_HPP
 
+#include <algorithm>      // for std::max, std::min
 #include <cstdint>        // for std::uint64_t
 #include <cstring>        // for memset
 #include <functional>     // for std::function, std::hash
@@ -187,6 +188,7 @@ class Quadtree {
   // for each object hits. The parameters (x1,y1) and (x2,y2) are the upper-left and
   // lower-right corners of the given rectangle.
   // Does nothing if x1 <= x2 && y1 <= y2 is not satisfied.
+  // In case of out-of-boundary, we shrink the range inside the whole region.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
   // Traverse all nodes in this tree.
@@ -223,6 +225,7 @@ class Quadtree {
   NodeT* splitHelper1(int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
   void splitHelper2(NodeT* node);
   void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
+  NodeT* findRangeNode(int x1, int y1, int x2, int y2) const;
 };
 
 // ~~~~~~~~~~~ Implementation ~~~~~~~~~~~~~
@@ -520,7 +523,7 @@ inline bool isOverlap(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int 
   //
   //           A's left         A's right                  A's left        A's right
   //
-  //      *       |       *       |              OR           |       *       |        * 
+  //      *       |       *       |              OR           |       *       |        *
   //      *       |       *       |                           |       *       |        *
   //      *       |       *       |                           |       *       |        *
   //  B's left        B's right                                    B's left          B's right
@@ -555,6 +558,36 @@ void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collect
     if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
       collector(x, y, o);
     }
+}
+
+// Using binary search to guess the smallest node that contains the given rectangle range.
+// The key is to guess a largest depth d, where the id(d,x1,y1) and id(d,x2,y2) got the same node.
+// Undefined behavior if the given range is out of boundary at any axis.
+// The time complexity is O(log Depth)
+template <typename Object, typename ObjectHasher>
+Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::findRangeNode(int x1, int y1, int x2,
+                                                                          int y2) const {
+  int l = 0, r = maxd;
+  NodeT* node = root;
+  while (l < r) {
+    int d = (l + r + 1) >> 1;
+    auto id1 = pack(d, x1, y1, w, h);
+    auto id2 = pack(d, x2, y2, w, h);
+    // We should track the largest d and corresponding node that satisfies both:
+    // id1==id2 and the node is exist.
+    if (id1 == id2) {
+      auto it = m.find(id1);
+      if (it != m.end()) {
+        l = d;
+        node = it->second;
+        continue;
+      }
+    }
+    // Otherwise, the d is too large, skip this answer.
+    // Makes the upper bound smaller.
+    r = d - 1;
+  }
+  return node;
 }
 
 // Using binary search to guess the depth of the target node.
@@ -628,7 +661,9 @@ template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT& collector) const {
   if (!(x1 <= x2 && y1 <= y2)) return;
-  queryRange(root, collector, x1, y1, x2, y2);
+  x1 = std::max(0, x1), y1 = std::max(0, y1), x2 = std::min(x2, h - 1), y2 = std::min(y2, w - 1);
+  auto node = findRangeNode(x1, y1, x2, y2);
+  queryRange(node, collector, x1, y1, x2, y2);
 }
 
 template <typename Object, typename ObjectHasher>
