@@ -357,6 +357,15 @@ TEST_CASE("large 10wx10w") {
   REQUIRE(node->x1 == 0);
   REQUIRE(node->y1 == 0);
   REQUIRE(node->d == tree.Depth());
+  // Add (1e5/2,1e5/2)
+  tree.Add(1e5 / 2, 1e5 / 2, 0);
+  // Add (1e5/2+1,1e5/2+1)
+  tree.Add(1e5 / 2 + 1, 1e5 / 2 + 1, 0);
+  // QueryRange
+  quadtree::Objects<int> nodes1;
+  decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({x, y, o}); };
+  tree.QueryRange(1e5 / 2 - 1, 1e5 / 2 - 1, 1e5 / 2 + 1, 1e5 / 2 + 1, c1);
+  REQUIRE(nodes1.size() == 2);
 }
 
 TEST_CASE("FindSmallestNodeCoveringRange 12x8") {
