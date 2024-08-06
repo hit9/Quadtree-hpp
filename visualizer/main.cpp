@@ -62,6 +62,7 @@ int main(int argc, char* argv[]) {
   if (ParseOptionsFromCommandline(argc, argv, options) != 0) return -1;
   // Quadtree.
   quadtree::SplitingStopper ssf = [&options](int w, int h, int n) {
+    // return n == 0 || (w * h == n);
     return (w <= 2 && h <= 2) || (n <= options.max_number_objects_inside_leaf_node);
   };
   quadtree::Quadtree<int> tree(options.w, options.h, ssf);
@@ -268,7 +269,7 @@ void Visualizer::draw() {
       int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
       int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
       SDL_Rect rect = {x, y, w, h};
-      auto [r, g, b, a] = colors[(node->id + node->d) % 17];
+      auto [r, g, b, a] = colors[(node->Id(options.w, options.h) + node->d) % 17];
       SDL_SetRenderDrawColor(renderer, r, g, b, a);
       SDL_RenderFillRect(renderer, &rect);
     }

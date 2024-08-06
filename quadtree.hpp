@@ -17,8 +17,6 @@
 #ifndef HIT9_QUADTREE_HPP
 #define HIT9_QUADTREE_HPP
 
-#include <sys/wait.h>
-
 #include <algorithm>      // for std::max
 #include <cstdint>        // for std::uint64_t
 #include <cstring>        // for memset
@@ -34,6 +32,7 @@ const int MAX_SIDE = (1 << 29) - 1;
 const int MAX_DEPTH = 29;
 
 using std::uint64_t;
+using std::uint8_t;
 
 // NodeId is the unique identifier of a tree node, composed of:
 //
@@ -98,16 +97,15 @@ using Objects = std::unordered_set<ObjectKey<Object>, ObjectKeyHasher<Object, Ob
 // The structure of a tree node.
 template <typename Object, typename ObjectHasher = std::hash<Object>>
 struct Node {
-  // the id of this node.
-  NodeId id;
   bool isLeaf;
   // d is the depth of this node in the tree, starting from 0.
+  uint8_t d;
   // (x1,y1) and (x2,y2) are the upper-left and lower-right corners of the node's rectangle:
   //
   //     (x1,y1) +---------------+
   //             |               |
   //             +---------------+ (x2,y2)
-  int d, x1, y1, x2, y2;
+  int x1, y1, x2, y2;
   // Children: 0: left-top, 1: right-top, 2: left-bottom, 3: right-bottom
   // For a leaf node, the children of which are all nullptr.
   // For a non-leaf node, there's atleast one non-nullptr child.
@@ -126,7 +124,9 @@ struct Node {
   //       // for each object o locates at position (x,y)
   Objects<Object, ObjectHasher> objects;
 
-  Node(NodeId id, bool isLeaf, int d, int x1, int y1, int x2, int y2);
+  Node(bool isLeaf, uint8_t d, int x1, int y1, int x2, int y2);
+  // Returns the id of this node, where w and h is the width and height of the whole region.
+  NodeId Id(int w, int h) const { return pack(d, x1, y1, w, h); }
   ~Node();
 };
 
@@ -158,7 +158,7 @@ class Quadtree {
   ~Quadtree();
 
   // Returns the depth of the tree, starting from 0.
-  int Depth() const { return maxd; }
+  uint8_t Depth() const { return maxd; }
   // Returns the total number of objects managed by this tree.
   int NumObjects() const { return numObjects; }
   // Returns the number of nodes in this tree.
@@ -233,7 +233,7 @@ class Quadtree {
   // width and height of the whole region.
   const int w, h;
   // maxd is the current maximum depth.
-  int maxd = 0;
+  uint8_t maxd = 0;
   // numDepthTable records many nodes reaches every depth.
   int numDepthTable[MAX_DEPTH];
   // the number of objects in this tree.
@@ -250,11 +250,11 @@ class Quadtree {
   // ~~~~~~~~~~~ Internals ~~~~~~~~~~~~~
   NodeT* parentOf(NodeT* node) const;
   bool splitable(int x1, int y1, int x2, int y2, int n) const;
-  NodeT* createNode(bool isLeaf, int d, int x1, int y1, int x2, int y2);
+  NodeT* createNode(bool isLeaf, uint8_t d, int x1, int y1, int x2, int y2);
   void removeLeafNode(NodeT* node);
   bool trySplitDown(NodeT* node);
   bool tryMergeUp(NodeT* node);
-  NodeT* splitHelper1(int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
+  NodeT* splitHelper1(uint8_t d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
   void splitHelper2(NodeT* node);
   void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
   NodeT* findSmallestNodeCoveringRange(int x1, int y1, int x2, int y2, int dma) const;
@@ -293,8 +293,8 @@ std::size_t ObjectKeyHasher<Object, ObjectHasher>::operator()(const ObjectKey<Ob
 }
 
 template <typename Object, typename ObjectHasher>
-Node<Object, ObjectHasher>::Node(NodeId id, bool isLeaf, int d, int x1, int y1, int x2, int y2)
-    : id(id), isLeaf(isLeaf), d(d), x1(x1), y1(y1), x2(x2), y2(y2) {
+Node<Object, ObjectHasher>::Node(bool isLeaf, uint8_t d, int x1, int y1, int x2, int y2)
+    : isLeaf(isLeaf), d(d), x1(x1), y1(y1), x2(x2), y2(y2) {
   memset(children, 0, sizeof children);
 }
 
@@ -359,10 +359,11 @@ bool Quadtree<Object, ObjectHasher>::splitable(int x1, int y1, int x2, int y2, i
 
 // createNode is a simple function to create a new node and add to the global node table.
 template <typename Object, typename ObjectHasher>
-Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::createNode(bool isLeaf, int d, int x1,
-                                                                       int y1, int x2, int y2) {
+Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::createNode(bool isLeaf, uint8_t d,
+                                                                       int x1, int y1, int x2,
+                                                                       int y2) {
   auto id = pack(d, x1, y1, w, h);
-  auto node = new NodeT(id, isLeaf, d, x1, y1, x2, y2);
+  auto node = new NodeT(isLeaf, d, x1, y1, x2, y2);
   m.insert({id, node});
   if (isLeaf) ++numLeafNodes;
   // maintains the max depth.
@@ -401,7 +402,7 @@ void Quadtree<Object, ObjectHasher>::removeLeafNode(NodeT* node) {
 // rectangle (x1,y1,x2,y2) if this node is going to be a leaf node.
 template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
-    int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects) {
+    uint8_t d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects) {
   // boundary checks.
   if (!(x1 >= 0 && x1 < h && y1 >= 0 && y1 < w)) return nullptr;
   if (!(x2 >= 0 && x2 < h && y2 >= 0 && y2 < w)) return nullptr;
@@ -610,6 +611,7 @@ template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::Find(int x, int y) const {
   int l = 0, r = maxd;
   while (l <= r) {
+    // note: use int instead of uint8_t
     int d = (l + r) >> 1;
     auto id = pack(d, x, y, w, h);
     auto it = m.find(id);
@@ -679,6 +681,7 @@ Node<Object, ObjectKeyHasher>* Quadtree<Object, ObjectKeyHasher>::findSmallestNo
   int l = 0, r = dma;
   NodeT* node = root;
   while (l < r) {
+    // note: use int instead of uint8_t
     int d = (l + r + 1) >> 1;
     auto id1 = pack(d, x1, y1, w, h);
     auto id2 = pack(d, x2, y2, w, h);

@@ -395,8 +395,8 @@ TEST_CASE("FindSmallestNodeCoveringRange 12x8") {
   // Find (1,1),(4,6)
   auto d = tree.FindSmallestNodeCoveringRange(1, 1, 4, 6);
   REQUIRE(d != nullptr);
-  REQUIRE(d->d == 0);   // root
-  REQUIRE(d->id == 0);  // root
+  REQUIRE(d->d == 0);          // root
+  REQUIRE(d->Id(12, 8) == 0);  // root
 
   // Out of boundary
   auto e = tree.FindSmallestNodeCoveringRange(-1, -1, 13, 9);
