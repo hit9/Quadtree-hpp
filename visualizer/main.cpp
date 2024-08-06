@@ -269,7 +269,8 @@ void Visualizer::draw() {
       int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
       int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
       SDL_Rect rect = {x, y, w, h};
-      auto [r, g, b, a] = colors[(node->Id(options.w, options.h) + node->d) % 17];
+      auto sharing = quadtree::pack(node->d, node->x1, node->y1, options.w, options.h) + node->d;
+      auto [r, g, b, a] = colors[sharing % 17];
       SDL_SetRenderDrawColor(renderer, r, g, b, a);
       SDL_RenderFillRect(renderer, &rect);
     }

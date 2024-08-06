@@ -125,8 +125,6 @@ struct Node {
   Objects<Object, ObjectHasher> objects;
 
   Node(bool isLeaf, uint8_t d, int x1, int y1, int x2, int y2);
-  // Returns the id of this node, where w and h is the width and height of the whole region.
-  NodeId Id(int w, int h) const { return pack(d, x1, y1, w, h); }
   ~Node();
 };
 
