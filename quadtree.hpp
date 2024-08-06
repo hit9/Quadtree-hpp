@@ -17,7 +17,9 @@
 #ifndef HIT9_QUADTREE_HPP
 #define HIT9_QUADTREE_HPP
 
-#include <algorithm>      // for std::max, std::min
+#include <sys/wait.h>
+
+#include <algorithm>      // for std::max
 #include <cstdint>        // for std::uint64_t
 #include <cstring>        // for memset
 #include <functional>     // for std::function, std::hash
@@ -201,6 +203,25 @@ class Quadtree {
   // Returns nullptr if any axis of the two corners is out-of-boundary.
   // The time complexity is O(log D), where D is the depth of the tree.
   NodeT* FindSmallestNodeCoveringRange(int x1, int y1, int x2, int y2) const;
+  // Find all neighbour leaf nodes for given node at one direction.
+  // The meaning of 8 direction integers:
+  //
+  //        4| N(0)| 5
+  //       --+-----+--
+  //     W(3)|     | E(1)
+  //       --+-----+--
+  //        7| S(2)| 6
+  // Properties of the directions:
+  //    1. the opposite direction is direction XOR 2 .
+  // For diagonal directions(4,5,6,7), it simply returns the single diagonal leaf neighbour.
+  // For non-diagonal directions (0,1,2,3), there're two steps.
+  // Explaination for direction=0 (North), supposing the depth of given node is d:
+  // 1. Take a neighbour cell p=(x-1,y), find the smallest node containing p with depth at least d.
+  //    This could be done by a binary-search in time complexity O(log Depth).
+  // 2. Find the sourth children(No. 2,3) downward recursively from the node found in step1, until
+  //    we reach all the most sourth leaf nodes, here are the answer.
+  void FindNeighbourLeafNodes(NodeT* node, int direction, VisitorT& visitor) const;
+
   // Traverse all nodes in this tree.
   // The order is unstable between two traverses since we are traversing a cache hashtable of all
   // nodes actually.
@@ -236,6 +257,14 @@ class Quadtree {
   NodeT* splitHelper1(int d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
   void splitHelper2(NodeT* node);
   void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
+  NodeT* findSmallestNodeCoveringRange(int x1, int y1, int x2, int y2, int dma) const;
+  // ~~~~~~~~~~~~~ Internals::FindNeighbourLeafNodes ~~~~~~~~~~~~
+  void findNeighbourLeafNodesDiagonal(NodeT* node, int direction, VisitorT& visitor) const;
+  void findNeighbourLeafNodesHV(NodeT* node, int direction, VisitorT& visitor) const;
+  void getNeighbourPositionDiagonal(NodeT* node, int direction, int& px, int& py) const;
+  void getNeighbourPositionsHV(NodeT* node, int direction, int& px1, int& py1, int& px2,
+                               int& py2) const;
+  void getLeafNodesAtDirection(NodeT* node, int direction, VisitorT& visitor);
 };
 
 // ~~~~~~~~~~~ Implementation ~~~~~~~~~~~~~
@@ -639,14 +668,15 @@ void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
 
 // Using binary search to guess the smallest node that contains the given rectangle range.
 // The key is to guess a largest depth d, where the id(d,x1,y1) and id(d,x2,y2) got the same node.
-template <typename Object, typename ObjectHasher>
-Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCoveringRange(
-    int x1, int y1, int x2, int y2) const {
+// The dma is the max value of the depth range.
+template <typename Object, typename ObjectKeyHasher>
+Node<Object, ObjectKeyHasher>* Quadtree<Object, ObjectKeyHasher>::findSmallestNodeCoveringRange(
+    int x1, int y1, int x2, int y2, int dma) const {
   // boundary checks
   if (!(x1 >= 0 && x1 < h && y1 >= 0 && y1 < w)) return nullptr;
   if (!(x2 >= 0 && x2 < h && y2 >= 0 && y2 < w)) return nullptr;
   // Find the target
-  int l = 0, r = maxd;
+  int l = 0, r = dma;
   NodeT* node = root;
   while (l < r) {
     int d = (l + r + 1) >> 1;
@@ -670,6 +700,12 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCove
 }
 
 template <typename Object, typename ObjectHasher>
+Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCoveringRange(
+    int x1, int y1, int x2, int y2) const {
+  return findSmallestNodeCoveringRange(x1, y1, x2, y2, maxd);
+}
+
+template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT& collector) const {
   if (!(x1 <= x2 && y1 <= y2)) return;
@@ -682,6 +718,151 @@ template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT&& collector) const {
   QueryRange(x1, y1, x2, y2, collector);
+}
+
+// Get the neighbour position (px,py) on given diagonal direction of given node.
+// The star '*' is the target neighbour position:
+//
+//         y1    y2
+//     4  *|     |*   5
+//       --+-----+--    x1
+//         |     |
+//       --+-----+--    x2
+//     7  *|     |*   6
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::getNeighbourPositionDiagonal(NodeT* node, int direction,
+                                                                     int& px, int& py) const {
+  int x1 = node->x1, y1 = node->y1, x2 = node->x2, y2 = node->y2;
+  switch (direction) {
+    case 4:
+      px = x1 - 1, py = y1 - 1;
+      return;
+    case 5:
+      px = x1 - 1, py = y2 + 1;
+      return;
+    case 6:
+      px = x2 + 1, py = y2 + 1;
+      return;
+    case 7:
+      px = x2 + 1, py = y1 - 1;
+      return;
+  }
+}
+
+// FindNeighbourLeafNodes for the diagonal directions.
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::findNeighbourLeafNodesDiagonal(NodeT* node, int direction,
+                                                                       VisitorT& visitor) const {
+  // neighbour position
+  int px = -1, py = -1;
+  getNeighbourPositionDiagonal(node, direction, px, py);
+  // find the neighbour leaf containing (px,py)
+  auto neighbour = Find(px, py);
+  if (neighbour != nullptr) visitor(neighbour);
+}
+
+// Get the neighbour positions (px1,py1) and (px2,py2) on given non-diagonal direction (NEWS) of
+// given node.
+// The ab,cd,ef,gh are the target neighbour positions at each direction:
+//
+//            N:0
+//         y1    y2
+//         |     |
+//         a     b
+//       -g+-----+c-    x1
+//   W:3   |     |        E:1
+//         |     |
+//       -h+-----+d-    x2
+//         e     f
+//         |     |
+//           S:2
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::getNeighbourPositionsHV(NodeT* node, int direction,
+                                                                int& px1, int& py1, int& px2,
+                                                                int& py2) const {
+  int x1 = node->x1, y1 = node->y1, x2 = node->x2, y2 = node->y2;
+  switch (direction) {
+    case 0:                    // N
+      px1 = x1 - 1, py1 = y1;  // a
+      px2 = x1 - 1, py2 = y2;  // b
+      return;
+    case 1:                    // E
+      px1 = x1, py1 = y2 + 1;  // c
+      px2 = x2, py2 = y2 + 1;  // d
+      return;
+    case 2:                    // S
+      px1 = x2 + 1, py1 = y1;  // e
+      px2 = x2 + 1, py2 = y2;  // f
+      return;
+    case 3:                    // W
+      px1 = x1, py1 = y1 - 1;  // g
+      px2 = x2, py2 = y1 - 1;  // h
+      return;
+  }
+}
+
+// FindNeighbourLeafNodes for non-diagonal directions.
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::findNeighbourLeafNodesHV(NodeT* node, int direction,
+                                                                 VisitorT& visitor) const {
+  // neighbour positions
+  int px1 = -1, py1 = -1, px2 = -1, py2 = -1;
+  getNeighbourPositionsHV(node, direction, px1, py1, px2, py2);
+  // find the smallest neighbour node contains this region (px1,py1),(px2,py2)
+  auto p = findSmallestNodeCoveringRange(px1, py1, px2, py2, node->d);
+  if (p == nullptr) return;
+  // find all leaf nodes inside p locating on the opposite direction.
+  getLeafNodesAtDirection(p, direction ^ 2, visitor);
+}
+
+// Jump table for: [flag][direction] => {children index (-1 for invalid)}
+// Checkout the document of function getLeafNodesAtDirection for the flag's meaning.
+const int GET_LEAF_NODES_AT_DIRECTION_JUMP_TABLE[8][4][2] = {
+    // 0:N, 1:E, 2:S, 3:W
+    {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}},  // 0b000, useless, leaf node
+    {{0, 0}, {0, 0}, {0, 0}, {0, 0}},          // 0b001, (0---), singal grid
+    {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}},  // 0b010, useless
+    {{0, 1}, {-1, 1}, {0, 1}, {0, -1}},        // 0b011, (01--) horizonal 1x2 grids
+    {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}},  // 0b100, useless
+    {{0, -1}, {0, 2}, {2, 0}, {0, 2}},         // 0b101, (0-2-) vertical 2x1 grids
+    {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}},  // 0b110, useless
+    {{0, 1}, {1, 3}, {2, 3}, {0, 2}},          // 0b111, 4 grids
+};
+
+//
+// Collects all leaf nodes in given node recursively at given direction.
+// There are 5 cases:
+//      0 | 1
+//     ---+---
+//      2 | 3
+// 1. node has 1 non-null child (0---), flag 0b001 (child 0 is the 1st bit)
+// 2. node has 2 non-null children, horizonal layout (01--), flag 0b011 (child 1 is the 2nd bit)
+// 3. node has 2 non-null children, vertical layout (0-2-), flag 0b101 (child 2 is the 3rd bit)
+// 4. node has 4 non-null children (0123), flag 0b111
+// 5. node has non children, flag 0
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::getLeafNodesAtDirection(NodeT* node, int direction,
+                                                                VisitorT& visitor) {
+  if (node->isLeaf) {
+    visitor(node);
+    return;
+  }
+  // layout of children inside this node.
+  int flag = 0;
+  if (node->children[0] != nullptr) flag |= 0b001;
+  if (node->children[1] != nullptr) flag |= 0b011;
+  if (node->children[2] != nullptr) flag |= 0b101;
+  // the children to go down, (at most 2)
+  const auto& t = GET_LEAF_NODES_AT_DIRECTION_JUMP_TABLE[flag][direction];
+  if (t[0] != -1) getLeafNodesAtDirection(node->children[t[0]], direction, visitor);
+  if (t[1] != -1) getLeafNodesAtDirection(node->children[t[1]], direction, visitor);
+}
+
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::FindNeighbourLeafNodes(NodeT* node, int direction,
+                                                               VisitorT& visitor) const {
+  if (direction >= 4) return findNeighbourLeafNodesDiagonal(node, direction, visitor);
+  return findNeighbourLeafNodesHV(node, direction, visitor);  // NEWS
 }
 
 }  // namespace quadtree
