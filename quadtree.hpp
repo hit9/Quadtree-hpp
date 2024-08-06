@@ -196,12 +196,12 @@ class Quadtree {
   // worst to be the total tree's nodes.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
-  // Find the smallest node enclosing the given query rectangula range.
+  // Find the smallest node enclosing the given rectangular query range.
   // (x1,y1) and (x2,y2) are the left-top and right-bottom corners of the query range.
   // Returns nullptr if any axis of the two corners is out-of-boundary.
   // The time complexity is O(log D), where D is the depth of the tree.
   NodeT* FindSmallestNodeCoveringRange(int x1, int y1, int x2, int y2) const;
-  // Find all neighbour leaf nodes for given node at one direction.
+  // Find all neighbours leaf nodes for given node at one direction.
   // The meaning of 8 direction integers:
   //
   //        4| 0(N)| 5
@@ -233,7 +233,7 @@ class Quadtree {
   const int w, h;
   // maxd is the current maximum depth.
   uint8_t maxd = 0;
-  // numDepthTable records many nodes reaches every depth.
+  // numDepthTable records how many nodes reaches every depth.
   int numDepthTable[MAX_DEPTH];
   // the number of objects in this tree.
   int numObjects = 0;
@@ -603,7 +603,7 @@ void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collect
 // Reason: the id = (d, x*2^d/h, y*2^d/w), it's the same for all (x,y) inside the same
 // node. If id(d,x,y) is not found in the map m, the guessed depth is too large, we should
 // shrink the upper bound. Otherwise, if we found a node, but it's not a leaf, the answer
-// is too small, we should shrink the lower bound, And finally, if we found a leaf node,
+// is too small, we should make the lower bound larger, And finally, if we found a leaf node,
 // it's the correct answer. The time complexity is O(log maxd), where maxd is the depth of
 // this whole tree.
 template <typename Object, typename ObjectHasher>
@@ -669,7 +669,8 @@ void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
 
 // Using binary search to guess the smallest node that contains the given rectangle range.
 // The key is to guess a largest depth d, where the id(d,x1,y1) and id(d,x2,y2) got the same node.
-// The dma is the max value of the depth range.
+// The dma is the max value of the depth to guess.
+// Returns nullptr if any one of x1,y1,x2,y2 crosses the boundary.
 template <typename Object, typename ObjectKeyHasher>
 Node<Object, ObjectKeyHasher>* Quadtree<Object, ObjectKeyHasher>::findSmallestNodeCoveringRange(
     int x1, int y1, int x2, int y2, int dma) const {
@@ -685,7 +686,7 @@ Node<Object, ObjectKeyHasher>* Quadtree<Object, ObjectKeyHasher>::findSmallestNo
     auto id1 = pack(d, x1, y1, w, h);
     auto id2 = pack(d, x2, y2, w, h);
     // We should track the largest d and corresponding node that satisfies both:
-    // id1==id2 and the node at this id is exist.
+    // id1==id2 and the node at this id exists.
     if (id1 == id2) {
       auto it = m.find(id1);
       if (it != m.end()) {
