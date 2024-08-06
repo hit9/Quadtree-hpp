@@ -103,10 +103,10 @@ Visualizer's operations:
    1. Click the **right mouse button** to figure the left-upper corner of the query region.
    2. Then right click again to figure the right-botton corner to query the objects that inside this rectangle region.
    3. Click the **right mouse button** again or just press `ESC` to clear the highlighting.
-5. **Query Neighbour Nodes*:
+5. **Query Neighbour Nodes**:
     1. Press key `n` to start query neighbour leaf nodes.
     2. Click the left mouse button to figure a leaf node .
-    3. Then press any of `0~7` key to figure a direction, then you will seen all the neighbour nodes in red.
+    3. Then press any of `0~7` key to figure a direction, then you will see all the neighbour nodes in red.
 
        ```cpp
        //        4| 0(N)| 5
@@ -116,6 +116,8 @@ Visualizer's operations:
        //        7| 2(S)| 6
        ```
     4. Press key `n` again to or just press `ESC` to clear the highlighting.
+
+    ![](misc/images/quadtree-find-neighbours-demo.jpg)
 
 
 ### License
