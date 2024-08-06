@@ -50,6 +50,9 @@ TEST_CASE("simple square 8x8") {
   REQUIRE(node2->y1 == 0);
   REQUIRE(node2->x2 == 3);
   REQUIRE(node2->y2 == 3);
+  // Find(-1,10) , out of boundary
+  auto node3 = tree.Find(-1, 10);
+  REQUIRE(node3 == nullptr);
   // QueryRange (hit 2)
   quadtree::Objects<int> nodes1;
   decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({x, y, o}); };
@@ -364,7 +367,7 @@ TEST_CASE("large 10wx10w") {
   // QueryRange
   quadtree::Objects<int> nodes1;
   decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({x, y, o}); };
-  tree.QueryRange(1e5 / 2 - 1, 1e5 / 2 - 1, 1e5 / 2 + 1, 1e5 / 2 + 1, c1);
+  tree.QueryRange((1e5 / 2) - 1, (1e5 / 2) - 1, (1e5 / 2) + 1, (1e5 / 2) + 1, c1);
   REQUIRE(nodes1.size() == 2);
 }
 
@@ -397,12 +400,8 @@ TEST_CASE("FindSmallestNodeCoveringRange 12x8") {
 
   // Out of boundary
   auto e = tree.FindSmallestNodeCoveringRange(-1, -1, 13, 9);
-  REQUIRE(d != nullptr);
-  REQUIRE(d->d == 0);   // root
-  REQUIRE(d->id == 0);  // root
+  REQUIRE(e == nullptr);
   // Out of boundary
   auto f = tree.FindSmallestNodeCoveringRange(144, 144, 144, 144);
-  REQUIRE(f != nullptr);
-  REQUIRE(f->d == 0);   // root
-  REQUIRE(f->id == 0);  // root
+  REQUIRE(f == nullptr);
 }

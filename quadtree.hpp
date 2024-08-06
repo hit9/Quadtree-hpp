@@ -89,6 +89,7 @@ struct ObjectKeyHasher {
 using SplitingStopper = std::function<bool(int w, int h, int n)>;
 
 // Objects is the container to store objects and their positions.
+// It's an unordered_set of {x, y, object} structs.
 template <typename Object, typename ObjectHasher = std::hash<Object>>
 using Objects = std::unordered_set<ObjectKey<Object>, ObjectKeyHasher<Object, ObjectHasher>>;
 
@@ -128,7 +129,7 @@ struct Node {
 };
 
 // Collector is the function that can collect the managed objects.
-// The arguments is (x,y,object);
+// The arguments is (x,y,object), where the (x,y) is the position of the object.
 template <typename Object>
 using Collector = std::function<void(int, int, Object)>;
 
@@ -167,10 +168,10 @@ class Quadtree {
   // where the word "empty" means that there's no nodes inside this tree.
   void Build();
   // Find the leaf node managing given position (x,y).
-  // If the given position crosses the bound, the behavior is undefined.
+  // If the given position crosses the bound, returns nullptr.
   // We use binary-search for optimization, the time complexity is O(log Depth).
   NodeT* Find(int x, int y) const;
-  // Add an object located at position (x,y) to the right leaf node.
+  // Add a object located at position (x,y) to the right leaf node.
   // And split down if the node is able to continue the spliting after the insertion.
   // Or merge up if the node's parent is able to be a leaf node instead.
   // At most one of "potential spliting and merge" will happen.
@@ -185,23 +186,24 @@ class Quadtree {
   // Dose nothing if this object dose not exist at given position.
   void Remove(int x, int y, Object o);
   // Query the objects inside given rectangular range, the given collector will be called
-  // for each object hits. The parameters (x1,y1) and (x2,y2) are the upper-left and
-  // lower-right corners of the given rectangle.
+  // for each object hits. The parameters (x1,y1) and (x2,y2) are the left-top and right-bottom
+  // corners of the given rectangle.
   // Does nothing if x1 <= x2 && y1 <= y2 is not satisfied.
-  // In case of out-of-boundary, we shrink the range inside the whole region at first.
-  // We first locate the smallest node that contains the given rectangular range, and then query
+  // We first locate the smallest node that encloses the given rectangular range, and then query
   // its descendant leaf nodes overlaping with this range recursively, and finally collects the
   // objects inside this range from these leaf nodes.
   // Time complexity: O(log D + N), where N is the number of nodes under the node found, which is
   // worst to be the total tree's nodes.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
-  // Find the smallest node covering the given query rectangula range.
-  // Returns root node if any corner if the given range is out-of-boundary.
+  // Find the smallest node enclosing the given query rectangula range.
+  // (x1,y1) and (x2,y2) are the left-top and right-bottom corners of the query range.
+  // Returns nullptr if any axis of the two corners is out-of-boundary.
   // The time complexity is O(log D), where D is the depth of the tree.
   NodeT* FindSmallestNodeCoveringRange(int x1, int y1, int x2, int y2) const;
   // Traverse all nodes in this tree.
-  // The order is unstable between two traverses.
+  // The order is unstable between two traverses since we are traversing a cache hashtable of all
+  // nodes actually.
   // To traverse only the leaf nodes, you may filter by the `node->isLeaf` attribute.
   void ForEachNode(VisitorT& visitor) const;
 
@@ -637,10 +639,13 @@ void Quadtree<Object, ObjectHasher>::ForEachNode(VisitorT& visitor) const {
 
 // Using binary search to guess the smallest node that contains the given rectangle range.
 // The key is to guess a largest depth d, where the id(d,x1,y1) and id(d,x2,y2) got the same node.
-// Undefined behavior if the given range is out of boundary at any axis.
 template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCoveringRange(
     int x1, int y1, int x2, int y2) const {
+  // boundary checks
+  if (!(x1 >= 0 && x1 < h && y1 >= 0 && y1 < w)) return nullptr;
+  if (!(x2 >= 0 && x2 < h && y2 >= 0 && y2 < w)) return nullptr;
+  // Find the target
   int l = 0, r = maxd;
   NodeT* node = root;
   while (l < r) {
@@ -661,7 +666,6 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::FindSmallestNodeCove
     // Makes the upper bound smaller.
     r = d - 1;
   }
-  // If out-of-boundary, the l won't be updated, the node stays at root.
   return node;
 }
 
@@ -669,8 +673,8 @@ template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT& collector) const {
   if (!(x1 <= x2 && y1 <= y2)) return;
-  x1 = std::max(0, x1), y1 = std::max(0, y1), x2 = std::min(x2, h - 1), y2 = std::min(y2, w - 1);
   auto node = FindSmallestNodeCoveringRange(x1, y1, x2, y2);
+  if (node == nullptr) node = root;
   queryRange(node, collector, x1, y1, x2, y2);
 }
 
