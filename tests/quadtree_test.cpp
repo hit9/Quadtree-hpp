@@ -1,6 +1,7 @@
 #include "quadtree.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <unordered_set>
 
 TEST_CASE("simple square 8x8") {
   quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (w <= 2 && h <= 2) || n <= 1; };
@@ -402,4 +403,72 @@ TEST_CASE("FindSmallestNodeCoveringRange 12x8") {
   // Out of boundary
   auto f = tree.FindSmallestNodeCoveringRange(144, 144, 144, 144);
   REQUIRE(f == nullptr);
+}
+
+TEST_CASE("FindNeighbourLeafNodes 12x6") {
+  quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+  quadtree::Quadtree<int> tree(12, 6, ssf);
+  tree.Build();
+  // Add(3,5)
+  tree.Add(3, 5, 1);
+
+  // Find sourth neighbor of (0,0)'s leaf node
+  std::unordered_set<quadtree::Node<int>*> st1;
+  quadtree::Visitor<int> visitor1 = [&](quadtree::Node<int>* node) { st1.insert(node); };
+  auto a = tree.Find(0, 0);
+  tree.FindNeighbourLeafNodes(a, 2, visitor1);  // S
+  REQUIRE(st1.size() == 3);
+  REQUIRE(st1.find(tree.Find(3, 0)) != st1.end());
+  REQUIRE(st1.find(tree.Find(3, 3)) != st1.end());
+  REQUIRE(st1.find(tree.Find(3, 5)) != st1.end());
+
+  // Find north neighbor of (3,3)'s leaf node
+  std::unordered_set<quadtree::Node<int>*> st2;
+  quadtree::Visitor<int> visitor2 = [&](quadtree::Node<int>* node) { st2.insert(node); };
+  auto b = tree.Find(3, 3);
+  tree.FindNeighbourLeafNodes(b, 0, visitor2);  // N
+  REQUIRE(st2.size() == 1);
+  REQUIRE(st2.find(tree.Find(0, 0)) != st2.end());
+
+  // Find west neighbor of (3,6)'s leaf node.
+  std::unordered_set<quadtree::Node<int>*> st3;
+  quadtree::Visitor<int> visitor3 = [&](quadtree::Node<int>* node) { st3.insert(node); };
+  auto c = tree.Find(3, 6);
+  tree.FindNeighbourLeafNodes(c, 3, visitor3);  // W
+  REQUIRE(st3.size() == 3);
+  REQUIRE(st3.find(tree.Find(3, 5)) != st3.end());
+  REQUIRE(st3.find(tree.Find(4, 5)) != st3.end());
+  REQUIRE(st3.find(tree.Find(5, 5)) != st3.end());
+
+  // Find NE (3,0)'s leaf node.
+  std::unordered_set<quadtree::Node<int>*> st4;
+  quadtree::Visitor<int> visitor4 = [&](quadtree::Node<int>* node) { st4.insert(node); };
+  auto d = tree.Find(3, 0);
+  tree.FindNeighbourLeafNodes(d, 5, visitor4);  // NE
+  REQUIRE(st4.size() == 1);
+  REQUIRE(st4.find(tree.Find(0, 0)) != st4.end());
+
+  // out of region
+  // Find NW of (0,0)
+  std::unordered_set<quadtree::Node<int>*> st5;
+  quadtree::Visitor<int> visitor5 = [&](quadtree::Node<int>* node) { st5.insert(node); };
+  auto e = tree.Find(0, 0);
+  tree.FindNeighbourLeafNodes(e, 4, visitor5);  // NW
+  REQUIRE(st5.size() == 0);
+
+  // out of region
+  // Find N of (0,7)
+  std::unordered_set<quadtree::Node<int>*> st6;
+  quadtree::Visitor<int> visitor6 = [&](quadtree::Node<int>* node) { st6.insert(node); };
+  auto f = tree.Find(0, 7);
+  tree.FindNeighbourLeafNodes(f, 0, visitor6);  // E
+  REQUIRE(st6.size() == 0);
+
+  // Find small node's neighbors
+  std::unordered_set<quadtree::Node<int>*> st7;
+  quadtree::Visitor<int> visitor7 = [&](quadtree::Node<int>* node) { st7.insert(node); };
+  auto g = tree.Find(4, 3);
+  tree.FindNeighbourLeafNodes(g, 3, visitor7);  // W
+  REQUIRE(st7.size() == 1);
+  REQUIRE(st7.find(tree.Find(3, 0)) != st7.end());
 }
