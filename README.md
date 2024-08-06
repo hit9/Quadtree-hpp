@@ -8,6 +8,8 @@ A quadtree implementation working on a grid rectangle region in C++.
 * The tree structure can be adjusted dynamically and incrementally.
 * Working both on square and non-square rectangle grids.
 * Time complexity finding a node is `log(Depth)` via binary-search on depth.
+* Supports to find neighbours leaf nodes. `FindNeighbourLeafNodes`.
+* Supports to find objects within a rectangle range. `QueryRange`.
 
 ## Screenshots
 
@@ -65,6 +67,12 @@ tree.ForEachNode([](quadtree::Node<Object*>* node) {
     }
   }
 });
+
+// Visit neighbours leaf node at North direction of given node.
+quadtree<Object*>::VisitT visitor = [](quadtree::Node<Object*>* node) {
+    //...
+};
+tree.FindNeighbourLeafNodes(node, 0, visitor);
 ```
 
 ### How to run the visualizer
