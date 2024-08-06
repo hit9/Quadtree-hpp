@@ -25,6 +25,8 @@ struct Options {
   int max_number_objects_inside_leaf_node = 1;
   // Milliseconds between SDL frames.
   int delay_ms = 50;
+  // Use ssf1
+  bool use_ssf1 = false;
 };
 
 // Parse options from command line.
@@ -79,7 +81,7 @@ int main(int argc, char* argv[]) {
   if (ParseOptionsFromCommandline(argc, argv, options) != 0) return -1;
   // Quadtree.
   quadtree::SplitingStopper ssf = [&options](int w, int h, int n) {
-    // return n == 0 || (w * h == n);
+    if (options.use_ssf1) return n == 0 || (w * h == n);
     return (w <= 2 && h <= 2) || (n <= options.max_number_objects_inside_leaf_node);
   };
   quadtree::Quadtree<int> tree(options.w, options.h, ssf);
@@ -111,6 +113,7 @@ int ParseOptionsFromCommandline(int argc, char* argv[], Options& options) {
       .help("max number of obhects inside a leaf node")
       .default_value(1)
       .store_into(options.max_number_objects_inside_leaf_node);
+  program.add_argument("-ssf1").help("use ssf1").default_value(false).store_into(options.use_ssf1);
   try {
     program.parse_args(argc, argv);
   } catch (const std::exception& e) {
@@ -249,6 +252,10 @@ int Visualizer::handleInputs() {
       case SDL_MOUSEBUTTONDOWN:
 
         if (e.button.button == SDL_BUTTON_LEFT) {
+          if (qnflag != 0 && qnflag != 1) {
+            clearQueryNeighbours();
+            return 0;
+          }
           // SDL:
           // x is the horizonal direction,
           // y is the vertical direction.
