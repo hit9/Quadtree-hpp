@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.1.4
+// BSD license. Chao Wang, Version: 0.1.5
 //
 // Coordinate conventions:
 //
@@ -163,6 +163,9 @@ class Quadtree {
   int NumNodes() const { return m.size(); }
   // Returns the number of leaf nodes in this tree.
   int NumLeafNodes() const { return numLeafNodes; }
+  // Sets the callback functions later after construction.
+  void SetAfterLeafCreatedCallback(VisitorT cb) { afterLeafCreated = cb; }
+  void SetBeforeLeafRemovedCallback(VisitorT cb) { beforeLeafRemoved = cb; }
   // Build all nodes recursively on an empty quadtree.
   // This build function must be called on an **empty** quadtree,
   // where the word "empty" means that there's no nodes inside this tree.
