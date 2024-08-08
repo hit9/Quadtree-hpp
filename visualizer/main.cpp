@@ -2,6 +2,7 @@
 #include <spdlog/spdlog.h>
 
 #include <argparse/argparse.hpp>
+#include <chrono>
 #include <unordered_set>
 
 #include "quadtree.hpp"
@@ -272,18 +273,21 @@ int Visualizer::handleInputs() {
             }
           } else {  // Add or Remove objects.
             GRIDS[x][y] ^= 1;
+            std::string op = "";
+            auto start = std::chrono::high_resolution_clock::now();
             if (GRIDS[x][y]) {  // added a object
               tree.Add(x, y, 1);
-              spdlog::info(
-                  "Mouse left button clicked, added a object, number of leaf nodes: {}, depth: {}",
-                  tree.NumLeafNodes(), tree.Depth());
+              op = "added a object";
             } else {
               tree.Remove(x, y, 1);
-              spdlog::info(
-                  "Mouse left button clicked, removed a object, number of leaf nodes: {}, depth: "
-                  "{}",
-                  tree.NumLeafNodes(), tree.Depth());
+              op = "removed a object";
             }
+            auto end = std::chrono::high_resolution_clock::now();
+            spdlog::info(
+                "Mouse left button clicked, {}, number of leaf nodes: {}, depth: "
+                "{}, time: {}us",
+                op, tree.NumLeafNodes(), tree.Depth(),
+                std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
           }
         } else if (e.button.button == SDL_BUTTON_RIGHT) {
           if (qnflag != 0) {
