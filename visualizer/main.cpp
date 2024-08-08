@@ -202,6 +202,7 @@ void Visualizer::Start() {
 
 int Visualizer::handleInputs() {
   SDL_Event e;
+  std::chrono::high_resolution_clock::time_point start, end;
   while (SDL_PollEvent(&e)) {
     switch (e.type) {
       case SDL_QUIT:  // quit
@@ -238,10 +239,14 @@ int Visualizer::handleInputs() {
               qnDirection = e.key.keysym.sym - '0';
               // Run the query. TODO
               qnAns.clear();
+              start = std::chrono::high_resolution_clock::now();
               tree.FindNeighbourLeafNodes(qnNode, qnDirection, qnVisitor);
+              end = std::chrono::high_resolution_clock::now();
               qnflag = 3;
-              spdlog::info("Query the neighbour on the direction {} done, {} neighbours",
-                           qnDirection, qnAns.size());
+              spdlog::info(
+                  "Query the neighbour on the direction {} done, {} neighbours. {}us", qnDirection,
+                  qnAns.size(),
+                  std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
               break;
             default:
               clearQueryNeighbours();
@@ -274,7 +279,7 @@ int Visualizer::handleInputs() {
           } else {  // Add or Remove objects.
             GRIDS[x][y] ^= 1;
             std::string op = "";
-            auto start = std::chrono::high_resolution_clock::now();
+            start = std::chrono::high_resolution_clock::now();
             if (GRIDS[x][y]) {  // added a object
               tree.Add(x, y, 1);
               op = "added a object";
@@ -282,7 +287,7 @@ int Visualizer::handleInputs() {
               tree.Remove(x, y, 1);
               op = "removed a object";
             }
-            auto end = std::chrono::high_resolution_clock::now();
+            end = std::chrono::high_resolution_clock::now();
             spdlog::info(
                 "Mouse left button clicked, {}, number of leaf nodes: {}, depth: "
                 "{}, time: {}us",
@@ -316,10 +321,14 @@ int Visualizer::handleInputs() {
                 spdlog::info("Invalid Range! Reset!");
                 clearQueryRange();
               } else {
+                start = std::chrono::high_resolution_clock::now();
                 // Run the query.
                 tree.QueryRange(qx1, qy1, qx2, qy2,
                                 [](int x, int y, int o) { QUERY_ANSWER[x][y] = 1; });
-                spdlog::info("Qange query answered done.");
+                end = std::chrono::high_resolution_clock::now();
+                spdlog::info(
+                    "Qange query answered done. {}us",
+                    std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
               }
               break;
           }
