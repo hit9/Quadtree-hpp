@@ -561,11 +561,11 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::mergeHelper(
   parent->isLeaf = true;
   ++numLeafNodes;
   // Continue the merging to the parent, until the root or some parent is splitable.
-  tryMergeUp(parent);
+  auto rt = mergeHelper(parent, removedLeafNodes);
   // the parent itself is not a leaf node originally.
-  // so we should remove it from removedLeafNodes.
+  // so we should ensure it doesn' exist in removedLeafNodes.
   removedLeafNodes.erase(parent);
-  return parent;
+  return rt;
 }
 
 // A non-leaf node should stay in a not-splitable state, if given leaf node's parent turns to
