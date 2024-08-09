@@ -325,30 +325,54 @@ TEST_CASE("simple invert-ssf 5x8") {
 
 TEST_CASE("hook functions") {
   // cnt is the counter to track leaf nodes.
-  int cnt = 0;
-  quadtree::Visitor<int> afterLeafCreated = [&cnt](quadtree::Node<int>* node) { cnt++; };
-  quadtree::Visitor<int> afterLeafRemoved = [&cnt](quadtree::Node<int>* node) { cnt--; };
+  int cnt = 0, createdTimes = 0, removedTimes = 0;
+  quadtree::Visitor<int> afterLeafCreated = [&](quadtree::Node<int>* node) {
+    cnt++;
+    createdTimes++;
+  };
+  quadtree::Visitor<int> afterLeafRemoved = [&](quadtree::Node<int>* node) {
+    cnt--;
+    removedTimes++;
+  };
   // Stop to split if there's no object inside it or all cells are placed with objects.
   quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
   quadtree::Quadtree<int> tree(9, 6, ssf, afterLeafCreated, afterLeafRemoved);
   tree.Build();
   REQUIRE(cnt == 1);
+  REQUIRE(createdTimes == 1);
+  REQUIRE(removedTimes == 0);
+  createdTimes = 0, removedTimes = 0;
   // Add (2,2)
   tree.Add(2, 2, 1);
   REQUIRE(tree.NumLeafNodes() == cnt);
+  REQUIRE(createdTimes == 8);
+  REQUIRE(removedTimes == 1);
+  createdTimes = 0, removedTimes = 0;
   // Add(2,3)
   tree.Add(2, 3, 1);
   REQUIRE(tree.NumLeafNodes() == cnt);
+  REQUIRE(createdTimes == 2);
+  REQUIRE(removedTimes == 1);
+  createdTimes = 0, removedTimes = 0;
   // Add(1,3)
   tree.Add(1, 3, 1);
   REQUIRE(tree.NumLeafNodes() == cnt);
+  REQUIRE(createdTimes == 4);
+  REQUIRE(removedTimes == 1);
+  createdTimes = 0, removedTimes = 0;
   // Remove(1,3)
   tree.Remove(1, 3, 1);
   REQUIRE(tree.NumLeafNodes() == cnt);
+  REQUIRE(createdTimes == 1);
+  REQUIRE(removedTimes == 4);
+  createdTimes = 0, removedTimes = 0;
   // Remove all
   tree.Remove(2, 3, 1);
   tree.Remove(2, 2, 1);
   REQUIRE(tree.NumLeafNodes() == cnt);
+  REQUIRE(createdTimes == 1 + 1);
+  REQUIRE(removedTimes == 2 + 8);
+  createdTimes = 0, removedTimes = 0;
 }
 
 TEST_CASE("large 10wx10w") {
