@@ -207,7 +207,7 @@ int Visualizer::handleInputs() {
     switch (e.type) {
       case SDL_QUIT:  // quit
         return -1;
-      case SDL_KEYDOWN:  // ESC to quit
+      case SDL_KEYDOWN:
         if (e.key.keysym.sym == SDLK_ESCAPE) {
           clearQueryNeighbours();
           clearQueryRange();
