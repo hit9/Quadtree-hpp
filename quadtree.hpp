@@ -475,7 +475,6 @@ void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node, NodeSet& createdL
 
   // anyway, it's not a leaf node any more.
   if (node->isLeaf) {
-    createdLeafNodes.erase(node);
     --numLeafNodes;
     node->isLeaf = false;
   }
@@ -490,7 +489,7 @@ bool Quadtree<Object, ObjectHasher>::trySplitDown(NodeT* node) {
     NodeSet createdLeafNodes;
     splitHelper2(node, createdLeafNodes);
 
-    // The node itself must turned to be a non-leaf node.
+    // The node itself should turn to be a non-leaf node.
     if (afterLeafRemoved != nullptr) afterLeafRemoved(node);
     // call hook function for each created leaf nodes.
     if (afterLeafCreated != nullptr) {
@@ -564,6 +563,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::mergeHelper(
   auto rt = mergeHelper(parent, removedLeafNodes);
   // the parent itself is not a leaf node originally.
   // so we should ensure it doesn' exist in removedLeafNodes.
+  // since the parent node may be added to removedLeafNodes in the mergeHelper(parent) call above.
   removedLeafNodes.erase(parent);
   return rt;
 }
