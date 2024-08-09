@@ -151,8 +151,11 @@ class Quadtree {
   using VisitorT = Visitor<Object, ObjectHasher>;
   using ObjectsT = Objects<Object, ObjectHasher>;
 
-  Quadtree(int w, int h, SplitingStopper ssf = nullptr, VisitorT afterLeafCreated = nullptr,
-           VisitorT beforeLeafRemoved = nullptr);
+  Quadtree(int w, int h,                         // width and height of the whole region.
+           SplitingStopper ssf = nullptr,        // function to stop node spliting
+           VisitorT afterLeafCreated = nullptr,  // callback to be called after leaf nodes created.
+           VisitorT afterLeafRemoved = nullptr   // callback to be called after leaf nodes removed.
+  );
   ~Quadtree();
 
   // Returns the depth of the tree, starting from 0.
@@ -165,7 +168,7 @@ class Quadtree {
   int NumLeafNodes() const { return numLeafNodes; }
   // Sets the callback functions later after construction.
   void SetAfterLeafCreatedCallback(VisitorT cb) { afterLeafCreated = cb; }
-  void SetBeforeLeafRemovedCallback(VisitorT cb) { beforeLeafRemoved = cb; }
+  void SetAfterLeafRemovedCallback(VisitorT cb) { afterLeafRemoved = cb; }
   // Build all nodes recursively on an empty quadtree.
   // This build function must be called on an **empty** quadtree,
   // where the word "empty" means that there's no nodes inside this tree.
@@ -247,17 +250,21 @@ class Quadtree {
   // cache the mappings between id and the node.
   std::unordered_map<NodeId, NodeT*> m;
   // callback functions
-  VisitorT afterLeafCreated = nullptr, beforeLeafRemoved = nullptr;
+  VisitorT afterLeafCreated = nullptr, afterLeafRemoved = nullptr;
 
   // ~~~~~~~~~~~ Internals ~~~~~~~~~~~~~
+  using NodeSet = std::unordered_set<NodeT*>;
   NodeT* parentOf(NodeT* node) const;
   bool splitable(int x1, int y1, int x2, int y2, int n) const;
   NodeT* createNode(bool isLeaf, uint8_t d, int x1, int y1, int x2, int y2);
   void removeLeafNode(NodeT* node);
   bool trySplitDown(NodeT* node);
   bool tryMergeUp(NodeT* node);
-  NodeT* splitHelper1(uint8_t d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects);
-  void splitHelper2(NodeT* node);
+  NodeT* splitHelper1(uint8_t d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects,
+                      NodeSet& createdLeafNodes);
+  void splitHelper2(NodeT* node, NodeSet& createdLeafNodes);
+  bool mergeable(NodeT* node, NodeT*& parent) const;
+  NodeT* mergeHelper(NodeT* node, NodeSet& removedLeafNodes);
   void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
   NodeT* findSmallestNodeCoveringRange(int x1, int y1, int x2, int y2, int dma) const;
   // ~~~~~~~~~~~~~ Internals::FindNeighbourLeafNodes ~~~~~~~~~~~~
@@ -315,18 +322,18 @@ Node<Object, ObjectHasher>::~Node() {
 // ssf is the function to determine whether to stop split a leaf node.
 // The afterLeafCreated is a callback function to be called after a leaf node is created, or after
 // a non-leaf node turns to a leaf node.
-// The beforeLeafRemoved is a callback function to be called
-// before a leaf node is removed or a leaf node turns to a non-leaf node.
-// Notes that the beforeLeafRemoved won't be called on the whole quadtree's
+// The afterLeafRemoved is a callback function to be called
+// after a leaf node is removed or a leaf node turns to a non-leaf node.
+// Notes that the afterLeafRemoved won't be called on the whole quadtree's
 // destruction.
 template <typename Object, typename ObjectHasher>
 Quadtree<Object, ObjectHasher>::Quadtree(int w, int h, SplitingStopper ssf,
-                                         VisitorT afterLeafCreated, VisitorT beforeLeafRemoved)
+                                         VisitorT afterLeafCreated, VisitorT afterLeafRemoved)
     : w(w),
       h(h),
       ssf(ssf),
       afterLeafCreated(afterLeafCreated),
-      beforeLeafRemoved(beforeLeafRemoved) {
+      afterLeafRemoved(afterLeafRemoved) {
   memset(numDepthTable, 0, sizeof numDepthTable);
 }
 
@@ -371,7 +378,6 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::createNode(bool isLe
   // maintains the max depth.
   maxd = std::max(maxd, d);
   ++numDepthTable[d];
-  if (isLeaf && afterLeafCreated != nullptr) afterLeafCreated(node);
   return node;
 }
 
@@ -381,7 +387,6 @@ template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::removeLeafNode(NodeT* node) {
   if (!node->isLeaf) return;
   auto id = pack(node->d, node->x1, node->y1, w, h);
-  if (beforeLeafRemoved != nullptr) beforeLeafRemoved(node);
   // Remove from the global table.
   m.erase(id);
   // maintains the max depth.
@@ -402,9 +407,11 @@ void Quadtree<Object, ObjectHasher>::removeLeafNode(NodeT* node) {
 // The (x1,y1) and (x2, y2) is the upper-left and lower-right corners of the node to create.
 // The upstreamObjects is from the upstream node, we should filter the ones inside the
 // rectangle (x1,y1,x2,y2) if this node is going to be a leaf node.
+// The createdLeafNodes is to collect created leaf nodes.
 template <typename Object, typename ObjectHasher>
 Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
-    uint8_t d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects) {
+    uint8_t d, int x1, int y1, int x2, int y2, ObjectsT& upstreamObjects,
+    NodeSet& createdLeafNodes) {
   // boundary checks.
   if (!(x1 >= 0 && x1 < h && y1 >= 0 && y1 < w)) return nullptr;
   if (!(x2 >= 0 && x2 < h && y2 >= 0 && y2 < w)) return nullptr;
@@ -424,6 +431,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
   if (!splitable(x1, y1, x2, y2, objs.size())) {
     auto node = createNode(true, d, x1, y1, x2, y2);
     node->objects.swap(objs);
+    createdLeafNodes.insert(node);
     return node;
   }
   // Creates a non-leaf node if the rectangle is able to split,
@@ -432,7 +440,7 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
   // Add the objects to this node temply, it will finally be stealed
   // by the its descendant leaf nodes.
   node->objects.swap(objs);
-  splitHelper2(node);
+  splitHelper2(node, createdLeafNodes);
   return node;
 }
 
@@ -441,8 +449,9 @@ Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::splitHelper1(
 // 1. it's a leaf node (with empty children).
 // 2. or it's marked to be a non-leaf node (with empty children).
 // After this call, the node always turns into a non-leaf node.
+// The createdLeafNodes is to collect created leaf nodes.
 template <typename Object, typename ObjectHasher>
-void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node) {
+void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node, NodeSet& createdLeafNodes) {
   auto x1 = node->x1, y1 = node->y1;
   auto x2 = node->x2, y2 = node->y2;
   auto d = node->d;
@@ -457,14 +466,16 @@ void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node) {
   //      |      |      |
   //  x2 -+------+------+-
   int x3 = x1 + (x2 - x1) / 2, y3 = y1 + (y2 - y1) / 2;
-  node->children[0] = splitHelper1(d + 1, x1, y1, x3, y3, node->objects);
-  node->children[1] = splitHelper1(d + 1, x1, y3 + 1, x3, y2, node->objects);
-  node->children[2] = splitHelper1(d + 1, x3 + 1, y1, x2, y3, node->objects);
-  node->children[3] = splitHelper1(d + 1, x3 + 1, y3 + 1, x2, y2, node->objects);
+  // clang-format off
+  node->children[0] = splitHelper1(d + 1, x1, y1, x3, y3, node->objects, createdLeafNodes);
+  node->children[1] = splitHelper1(d + 1, x1, y3 + 1, x3, y2, node->objects, createdLeafNodes);
+  node->children[2] = splitHelper1(d + 1, x3 + 1, y1, x2, y3, node->objects, createdLeafNodes);
+  node->children[3] = splitHelper1(d + 1, x3 + 1, y3 + 1, x2, y2, node->objects, createdLeafNodes);
+  // clang-format on
 
   // anyway, it's not a leaf node any more.
   if (node->isLeaf) {
-    if (beforeLeafRemoved != nullptr) beforeLeafRemoved(node);
+    createdLeafNodes.erase(node);
     --numLeafNodes;
     node->isLeaf = false;
   }
@@ -475,28 +486,33 @@ void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node) {
 template <typename Object, typename ObjectHasher>
 bool Quadtree<Object, ObjectHasher>::trySplitDown(NodeT* node) {
   if (node->isLeaf && splitable(node->x1, node->y1, node->x2, node->y2, node->objects.size())) {
-    splitHelper2(node);
+    // The createdLeafNodes is to collect created leaf nodes.
+    NodeSet createdLeafNodes;
+    splitHelper2(node, createdLeafNodes);
+
+    // The node itself must turned to be a non-leaf node.
+    if (afterLeafRemoved != nullptr) afterLeafRemoved(node);
+    // call hook function for each created leaf nodes.
+    if (afterLeafCreated != nullptr) {
+      for (auto createdNode : createdLeafNodes) afterLeafCreated(createdNode);
+    }
+
     return true;
   }
   return false;
 }
 
-// A non-leaf node should stay in a not-splitable state, if given leaf node's parent turns to
-// not-splitable, we merge the node with its brothers into this parent.
-// Does nothing if this node itself is the root.
-// Does nothing if this node itself is not a leaf node.
-// Returns true if the merging happens.
+// Returns true if given node is mergeable with its brothers.
+// And sets the passed-in parent pointer.
 template <typename Object, typename ObjectHasher>
-bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
+bool Quadtree<Object, ObjectHasher>::mergeable(NodeT* node, NodeT*& parent) const {
   // The root stops to merge up.
   if (node == root) return false;
   // We can only merge from the leaf node.
   if (!node->isLeaf) return false;
-
   // The parent of this leaf node.
-  auto parent = parentOf(node);
+  parent = parentOf(node);
   if (parent == nullptr) return false;
-
   // We can only merge if all the brothers are all leaf nodes.
   for (int i = 0; i < 4; i++) {
     auto child = parent->children[i];
@@ -504,7 +520,6 @@ bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
       return false;
     }
   }
-
   // Count the objects inside the parent.
   int n = 0;
   for (int i = 0; i < 4; i++) {
@@ -517,6 +532,18 @@ bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
   // Check if the parent node should be a leaf node now.
   // If it's still splitable, then it should stay be a non-leaf node.
   if (splitable(parent->x1, parent->y1, parent->x2, parent->y2, n)) return false;
+  return true;
+}
+
+// helps to merge up given node with its brothers into its parent recursively.
+// Returns an ancestor node (or itself) that stops to merge, aka the final leaf node after all
+// merging done. The removedLeafNodes collects the original leaf nodes that were removed during
+// this round.
+template <typename Object, typename ObjectHasher>
+Node<Object, ObjectHasher>* Quadtree<Object, ObjectHasher>::mergeHelper(
+    NodeT* node, NodeSet& removedLeafNodes) {
+  NodeT* parent;
+  if (!mergeable(node, parent)) return node;
 
   // Merges the managed objects up into the parent's objects.
   for (int i = 0; i < 4; i++) {
@@ -526,16 +553,40 @@ bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
         parent->objects.insert(k);  // copy
       }
       removeLeafNode(child);
+      removedLeafNodes.insert(child);
       parent->children[i] = nullptr;
     }
   }
   // this parent node now turns to be leaf node.
   parent->isLeaf = true;
   ++numLeafNodes;
-  if (afterLeafCreated != nullptr) afterLeafCreated(parent);
   // Continue the merging to the parent, until the root or some parent is splitable.
   tryMergeUp(parent);
-  return true;
+  // the parent itself is not a leaf node originally.
+  // so we should remove it from removedLeafNodes.
+  removedLeafNodes.erase(parent);
+  return parent;
+}
+
+// A non-leaf node should stay in a not-splitable state, if given leaf node's parent turns to
+// not-splitable, we merge the node with its brothers into this parent.
+// Does nothing if this node itself is the root.
+// Does nothing if this node itself is not a leaf node.
+// Returns true if the merging happens.
+template <typename Object, typename ObjectHasher>
+bool Quadtree<Object, ObjectHasher>::tryMergeUp(NodeT* node) {
+  NodeSet removedLeafNodes;
+  auto ancestor = mergeHelper(node, removedLeafNodes);
+  if (ancestor != node) {
+    // the node should be disapeared, merged into the ancestor
+    if (afterLeafRemoved != nullptr) {
+      for (auto removedNode : removedLeafNodes) afterLeafRemoved(removedNode);
+    }
+    // The ancestor node is the new leaf node.
+    if (afterLeafCreated != nullptr) afterLeafCreated(ancestor);
+    return true;
+  }
+  return false;
 }
 
 // AABB overlap testing.
@@ -662,7 +713,10 @@ void Quadtree<Object, ObjectHasher>::Remove(int x, int y, Object o) {
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::Build() {
   root = createNode(true, 0, 0, 0, h - 1, w - 1);
-  trySplitDown(root);
+  if (!trySplitDown(root)) {
+    // If the root is not splited, it's finally a new-created leaf node.
+    if (afterLeafCreated != nullptr) afterLeafCreated(root);
+  }
 }
 
 template <typename Object, typename ObjectHasher>

@@ -327,10 +327,10 @@ TEST_CASE("hook functions") {
   // cnt is the counter to track leaf nodes.
   int cnt = 0;
   quadtree::Visitor<int> afterLeafCreated = [&cnt](quadtree::Node<int>* node) { cnt++; };
-  quadtree::Visitor<int> beforeLeafRemoved = [&cnt](quadtree::Node<int>* node) { cnt--; };
+  quadtree::Visitor<int> afterLeafRemoved = [&cnt](quadtree::Node<int>* node) { cnt--; };
   // Stop to split if there's no object inside it or all cells are placed with objects.
   quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-  quadtree::Quadtree<int> tree(9, 6, ssf, afterLeafCreated, beforeLeafRemoved);
+  quadtree::Quadtree<int> tree(9, 6, ssf, afterLeafCreated, afterLeafRemoved);
   tree.Build();
   REQUIRE(cnt == 1);
   // Add (2,2)
