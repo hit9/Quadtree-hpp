@@ -394,6 +394,16 @@ TEST_CASE("large 10wx10w") {
   decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({x, y, o}); };
   tree.QueryRange((1e5 / 2) - 1, (1e5 / 2) - 1, (1e5 / 2) + 1, (1e5 / 2) + 1, c1);
   REQUIRE(nodes1.size() == 2);
+  // Add (3,5)
+  tree.Add(3, 5, 0);
+  // Remove all
+  tree.Remove(1e5 / 2, 1e5 / 2, 0);
+  tree.Remove(1e5 / 2 + 1, 1e5 / 2 + 1, 0);
+  tree.Remove(3, 5, 0);
+  tree.Remove(0, 0, 1);
+  REQUIRE(tree.NumNodes() == 1);
+  REQUIRE(tree.NumObjects() == 0);
+  REQUIRE(tree.Depth() == 0);
 }
 
 TEST_CASE("FindSmallestNodeCoveringRange 12x8") {
