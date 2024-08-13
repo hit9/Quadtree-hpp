@@ -496,3 +496,16 @@ TEST_CASE("FindNeighbourLeafNodes 12x6") {
   REQUIRE(st7.size() == 1);
   REQUIRE(st7.find(tree.Find(3, 0)) != st7.end());
 }
+
+TEST_CASE("bugfix 50x40 split id correction") {
+  quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
+  quadtree::Quadtree<int> tree(50, 40, ssf);
+  tree.Build();
+  REQUIRE(tree.NumLeafNodes() == 1);
+  tree.Add(3, 5, 1);
+  REQUIRE(tree.NumLeafNodes() == 17);
+  REQUIRE(tree.Depth() == 6);
+  tree.Remove(3, 5, 1);
+  REQUIRE(tree.NumLeafNodes() == 1);
+  REQUIRE(tree.Depth() == 0);
+}

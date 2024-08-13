@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.1.7
+// BSD license. Chao Wang, Version: 0.1.8
 //
 // Coordinate conventions:
 //
@@ -468,6 +468,17 @@ void Quadtree<Object, ObjectHasher>::splitHelper2(NodeT* node, NodeSet& createdL
   //      |      |      |
   //  x2 -+------+------+-
   int x3 = x1 + (x2 - x1) / 2, y3 = y1 + (y2 - y1) / 2;
+
+  // determines which side each axis x3 and y3 belongs, take y axis for instance:
+  // by default, we assume y3 belongs to the left side.
+  // but if the ids of y1 and y3 are going to dismatch, which means the y3 should belong to the
+  // right side, that is we should minus y3 by 1.
+  // And minus by 1 should be enough, because y3-2 always equals to y3-4, y3-8,.. until y1.
+  // Potential optimization: how to avoid the division here?
+  uint64_t k = 1 << (d + 1);
+  if ((k * x3 / h) != (k * x1 / h)) --x3;
+  if ((k * y3 / w) != (k * y1 / w)) --y3;
+
   // clang-format off
   node->children[0] = splitHelper1(d + 1, x1, y1, x3, y3, node->objects, createdLeafNodes);
   node->children[1] = splitHelper1(d + 1, x1, y3 + 1, x3, y2, node->objects, createdLeafNodes);
