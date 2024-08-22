@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.1.9
+// BSD license. Chao Wang, Version: 0.2.0
 //
 // Coordinate conventions:
 //
@@ -89,6 +89,12 @@ struct ObjectKeyHasher {
 //        [](int w, int h, int n) { return n < 10; };
 using SplitingStopper = std::function<bool(int w, int h, int n)>;
 
+// SplitingStopper v2 version.
+// (x1,y1) and (x2,y2) is the node's left-top and right-bottom corners.
+// n is the number of objects managed by the node.
+// If a SplitingStopperV2 ssf2 is provided, it's considered over (instead of) ssf v1.
+using SplitingStopperV2 = std::function<bool(int x1, int y1, int x2, int y2, int n)>;
+
 // Objects is the container to store objects and their positions.
 // It's an unordered_set of {x, y, object} structs.
 template <typename Object, typename ObjectHasher = std::hash<Object>>
@@ -168,6 +174,8 @@ class Quadtree {
   int NumLeafNodes() const { return numLeafNodes; }
   // Sets the ssf function later after construction.
   void SetSsf(SplitingStopper f) { ssf = f; }
+  // Sets the ssf v2 function later after construction.
+  void SetSsfV2(SplitingStopperV2 f) { ssfv2 = f; }
   // Sets the callback functions later after construction.
   void SetAfterLeafCreatedCallback(VisitorT cb) { afterLeafCreated = cb; }
   void SetAfterLeafRemovedCallback(VisitorT cb) { afterLeafRemoved = cb; }
@@ -249,6 +257,9 @@ class Quadtree {
   int numLeafNodes = 0;
   // the function to test if a node should stop to split.
   SplitingStopper ssf = nullptr;
+  // ssfv2 takes higher priority than ssf v1.
+  // if ssfv2 is not nullptr, ssf v1 won't be used anymore.
+  SplitingStopperV2 ssfv2 = nullptr;
   // cache the mappings between id and the node.
   std::unordered_map<NodeId, NodeT*> m;
   // callback functions
@@ -364,6 +375,12 @@ bool Quadtree<Object, ObjectHasher>::splitable(int x1, int y1, int x2, int y2, i
   // We can't split if it's a single cell.
   if (x1 == x2 && y1 == y2) return false;
   // We can't split if there's a ssf function stops it.
+  // if ssfv2 is provided not nullptr, we use only ssfv2 instead of ssf v1.
+  if (ssfv2 != nullptr) {
+    if (ssfv2(x1, y1, x2, y2, n)) return false;
+    return true;
+  }
+  // ssf v1
   if (ssf != nullptr && ssf(y2 - y1 + 1, x2 - x1 + 1, n)) return false;
   return true;
 }
