@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.2.0
+// BSD license. Chao Wang, Version: 0.2.1
 //
 // Coordinate conventions:
 //
@@ -212,6 +212,13 @@ class Quadtree {
   // worst to be the total tree's nodes.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
+  // Quert the leaf nodes inside given rectangular range, the given visitor will be called for each
+  // leaf nodes hits. The parameters (x1,y1) and (x2,y2) are the left-top and right-bottom corners
+  // of the given rectangle.
+  // Does nothing if x1 <= x2 && y1 <= y2 is not satisfied.
+  // The internal implementation is the same to QueryRange.
+  void QueryLeafNodesInRange(int x1, int y1, int x2, int y2, VisitorT& collector) const;
+  void QueryLeafNodesInRange(int x1, int y1, int x2, int y2, VisitorT&& collector) const;
   // Find the smallest node enclosing the given rectangular query range.
   // (x1,y1) and (x2,y2) are the left-top and right-bottom corners of the query range.
   // Returns nullptr if any axis of the two corners is out-of-boundary.
@@ -242,6 +249,12 @@ class Quadtree {
   // nodes actually.
   // To traverse only the leaf nodes, you may filter by the `node->isLeaf` attribute.
   void ForEachNode(VisitorT& visitor) const;
+
+  // ForceSyncLeafNode is a low-level interface, please use it with caution.
+  // The design purpose for it: in case our ssf function depends more than objects adding and
+  // removing. If some changes happen at places other than the objects locating areas, we may force
+  // sync the leaf nodes to maintain the potential splitings and mergings.
+  void ForceSyncLeafNode(NodeT* leafNode);
 
  private:
   NodeT* root = nullptr;
@@ -278,7 +291,8 @@ class Quadtree {
   void splitHelper2(NodeT* node, NodeSet& createdLeafNodes);
   bool mergeable(NodeT* node, NodeT*& parent) const;
   NodeT* mergeHelper(NodeT* node, NodeSet& removedLeafNodes);
-  void queryRange(NodeT* node, CollectorT& collector, int x1, int y1, int x2, int y2) const;
+  void queryRange(NodeT* node, CollectorT& objectsCollector, VisitorT& nodeVisitor, int x1, int y1,
+                  int x2, int y2) const;
   NodeT* findSmallestNodeCoveringRange(int x1, int y1, int x2, int y2, int dma) const;
   // ~~~~~~~~~~~~~ Internals::FindNeighbourLeafNodes ~~~~~~~~~~~~
   void findNeighbourLeafNodesDiagonal(NodeT* node, int direction, VisitorT& visitor) const;
@@ -660,10 +674,12 @@ inline bool isOverlap(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int 
   return ax1 <= bx2 && ax2 >= bx1 && ay1 <= by2 && ay2 >= by1;
 }
 
-// Query objects located in given rectangle in the given node.
+// Query objects or leaf nodes located in given rectangle in the given node.
+// the objectsCollector and nodeVisitor is optional
 template <typename Object, typename ObjectHasher>
-void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collector, int x1, int y1,
-                                                int x2, int y2) const {
+void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& objectsCollector,
+                                                VisitorT& nodeVisitor, int x1, int y1, int x2,
+                                                int y2) const {
   if (node == nullptr) return;
   // AABB overlap test.
   if (!isOverlap(node->x1, node->y1, node->x2, node->y2, x1, y1, x2, y2)) return;
@@ -671,16 +687,20 @@ void Quadtree<Object, ObjectHasher>::queryRange(NodeT* node, CollectorT& collect
   if (!node->isLeaf) {
     // recursively down to the children.
     for (int i = 0; i < 4; i++) {
-      queryRange(node->children[i], collector, x1, y1, x2, y2);
+      queryRange(node->children[i], objectsCollector, nodeVisitor, x1, y1, x2, y2);
     }
     return;
   }
-
-  // Collects objects inside the rectangle for this leaf node.
-  for (auto [x, y, o] : node->objects)
-    if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-      collector(x, y, o);
-    }
+  // Visit leaf node if provided.
+  if (nodeVisitor != nullptr) nodeVisitor(node);
+  // Visit objects if provided.
+  if (objectsCollector != nullptr) {
+    // Collects objects inside the rectangle for this leaf node.
+    for (auto [x, y, o] : node->objects)
+      if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+        objectsCollector(x, y, o);
+      }
+  }
 }
 
 // Using binary search to guess the depth of the target node.
@@ -801,13 +821,30 @@ void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
   if (!(x1 <= x2 && y1 <= y2)) return;
   auto node = FindSmallestNodeCoveringRange(x1, y1, x2, y2);
   if (node == nullptr) node = root;
-  queryRange(node, collector, x1, y1, x2, y2);
+  VisitorT nodeVisitor = nullptr;
+  queryRange(node, collector, nodeVisitor, x1, y1, x2, y2);
 }
 
 template <typename Object, typename ObjectHasher>
 void Quadtree<Object, ObjectHasher>::QueryRange(int x1, int y1, int x2, int y2,
                                                 CollectorT&& collector) const {
   QueryRange(x1, y1, x2, y2, collector);
+}
+
+template <typename Object, typename ObjectHasher>
+void Quadtree<Object, ObjectHasher>::QueryLeafNodesInRange(int x1, int y1, int x2, int y2,
+                                                           VisitorT& collector) const {
+  if (!(x1 <= x2 && y1 <= y2)) return;
+  auto node = FindSmallestNodeCoveringRange(x1, y1, x2, y2);
+  if (node == nullptr) node = root;
+  CollectorT objectsCollector = nullptr;
+  queryRange(node, objectsCollector, collector, x1, y1, x2, y2);
+}
+
+template <typename Object, typename ObjectHasher>
+void Quadtree<Object, ObjectHasher>::QueryLeafNodesInRange(int x1, int y1, int x2, int y2,
+                                                           VisitorT&& collector) const {
+  QueryLeafNodesInRange(x1, y1, x2, y2, collector);
 }
 
 // Get the neighbour position (px,py) on given diagonal direction of given node.
@@ -983,6 +1020,16 @@ void Quadtree<Object, ObjectKeyHasher>::FindNeighbourLeafNodes(NodeT* node, int 
                                                                VisitorT& visitor) const {
   if (direction >= 4) return findNeighbourLeafNodesDiagonal(node, direction, visitor);
   return findNeighbourLeafNodesHV(node, direction, visitor);  // NEWS
+}
+
+template <typename Object, typename ObjectKeyHasher>
+void Quadtree<Object, ObjectKeyHasher>::ForceSyncLeafNode(NodeT* leafNode) {
+  if (leafNode == nullptr) return;
+  // Is it still exist?
+  auto id = pack(leafNode->d, leafNode->x1, leafNode->y1, w, h);
+  if (m.find(id) == m.end()) return;
+  // only one will happen.
+  tryMergeUp(leafNode) || trySplitDown(leafNode);
 }
 
 }  // namespace quadtree
