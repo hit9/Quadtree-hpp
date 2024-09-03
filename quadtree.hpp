@@ -166,28 +166,38 @@ class Quadtree {
 
   // Returns the depth of the tree, starting from 0.
   uint8_t Depth() const { return maxd; }
+
   // Returns the total number of objects managed by this tree.
   int NumObjects() const { return numObjects; }
+
   // Returns the number of nodes in this tree.
   int NumNodes() const { return m.size(); }
+
   // Returns the number of leaf nodes in this tree.
   int NumLeafNodes() const { return numLeafNodes; }
+
   // Sets the ssf function later after construction.
   void SetSsf(SplitingStopper f) { ssf = f; }
+
   // Sets the ssf v2 function later after construction.
   void SetSsfV2(SplitingStopperV2 f) { ssfv2 = f; }
+
   // Sets the callback functions later after construction.
   void SetAfterLeafCreatedCallback(VisitorT cb) { afterLeafCreated = cb; }
+
   // Notes that the node is already freed, don't access the memory this node pointing to.
   void SetAfterLeafRemovedCallback(VisitorT cb) { afterLeafRemoved = cb; }
+
   // Build all nodes recursively on an empty quadtree.
   // This build function must be called on an **empty** quadtree,
   // where the word "empty" means that there's no nodes inside this tree.
   void Build();
+
   // Find the leaf node managing given position (x,y).
   // If the given position crosses the bound, returns nullptr.
   // We use binary-search for optimization, the time complexity is O(log Depth).
   NodeT* Find(int x, int y) const;
+
   // Add a object located at position (x,y) to the right leaf node.
   // And split down if the node is able to continue the spliting after the insertion.
   // Or merge up if the node's parent is able to be a leaf node instead.
@@ -195,6 +205,7 @@ class Quadtree {
   // Does nothing if the given position is out of boundary.
   // Dose nothing if this object already exist at given position.
   void Add(int x, int y, Object o);
+
   // Remove the managed object located at position (x,y).
   // And then try to merge the corresponding leaf node with its brothers, if possible.
   // Or try to split down if the node's parent is able to be a leaf node itself.
@@ -202,6 +213,14 @@ class Quadtree {
   // Does nothing if the given position crosses the boundary.
   // Dose nothing if this object dose not exist at given position.
   void Remove(int x, int y, Object o);
+
+  // RemoveObjects remove all objects located at position (x,y).
+  // And then try to merge or split to maintain the structure of the quadtree.
+  // the behaviour is similar to method Remove().
+  // Does nothing if the given position crosses the boundary.
+  // Dose nothing if this object dose not exist at given position.
+  void RemoveObjects(int x, int y);
+
   // Query the objects inside given rectangular range, the given collector will be called
   // for each object hits. The parameters (x1,y1) and (x2,y2) are the left-top and right-bottom
   // corners of the given rectangle.
@@ -213,6 +232,7 @@ class Quadtree {
   // worst to be the total tree's nodes.
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
   void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
+
   // Quert the leaf nodes inside given rectangular range, the given visitor will be called for each
   // leaf nodes hits. The parameters (x1,y1) and (x2,y2) are the left-top and right-bottom corners
   // of the given rectangle.
@@ -220,11 +240,13 @@ class Quadtree {
   // The internal implementation is the same to QueryRange.
   void QueryLeafNodesInRange(int x1, int y1, int x2, int y2, VisitorT& collector) const;
   void QueryLeafNodesInRange(int x1, int y1, int x2, int y2, VisitorT&& collector) const;
+
   // Find the smallest node enclosing the given rectangular query range.
   // (x1,y1) and (x2,y2) are the left-top and right-bottom corners of the query range.
   // Returns nullptr if any axis of the two corners is out-of-boundary.
   // The time complexity is O(log D), where D is the depth of the tree.
   NodeT* FindSmallestNodeCoveringRange(int x1, int y1, int x2, int y2) const;
+
   // Find all neighbours leaf nodes for given node at one direction.
   // The meaning of 8 direction integers:
   //
@@ -757,6 +779,22 @@ void Quadtree<Object, ObjectHasher>::Remove(int x, int y, Object o) {
   // remove the object from this node.
   if (node->objects.erase({x, y, o}) > 0) {
     --numObjects;
+    // At most only one of "split and merge" will be performed.
+    tryMergeUp(node) || trySplitDown(node);
+  }
+}
+
+template <typename Object, typename ObjectHasher>
+void Quadtree<Object, ObjectHasher>::RemoveObjects(int x, int y) {
+  // boundary checks.
+  if (!(x >= 0 && x < h && y >= 0 && y < w)) return;
+  // find the leaf node.
+  auto node = Find(x, y);
+  if (node == nullptr) return;
+  int size = node->objects.size();
+  node->objects.clear();
+  if (size) {
+    numObjects -= size;
     // At most only one of "split and merge" will be performed.
     tryMergeUp(node) || trySplitDown(node);
   }
