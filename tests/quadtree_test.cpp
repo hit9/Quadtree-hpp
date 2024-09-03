@@ -2,6 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <unordered_set>
+#include <vector>
 
 TEST_CASE("simple square 8x8") {
   quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (w <= 2 && h <= 2) || n <= 1; };
@@ -535,4 +536,19 @@ TEST_CASE("RemoveObjects") {
   tree.RemoveObjects(3, 3);
   REQUIRE(tree.NumObjects() == 0);
   REQUIRE(tree.NumLeafNodes() == 1);
+}
+
+TEST_CASE("BatchAddToLeafNode") {
+  quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
+  quadtree::Quadtree<int> tree(50, 40, ssf);
+  tree.Build();
+
+  auto root = tree.GetRootNode();
+  std::vector<quadtree::BatchOperationItem<int>> items;
+  items.push_back({4, 4, 1});
+  items.push_back({9, 6, 2});
+  items.push_back({10, 7, 3});
+  tree.BatchAddToLeafNode(root, items);
+  REQUIRE(tree.NumObjects() == 3);
+  REQUIRE(tree.NumLeafNodes() == 33);
 }

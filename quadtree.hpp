@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.2.1
+// BSD license. Chao Wang, Version: 0.2.2
 //
 // Coordinate conventions:
 //
@@ -13,6 +13,10 @@
 //    v
 //    x
 //
+
+// changes
+// ~~~~~~~
+// 0.2.2: Add `RemoveObjects` and `BatchAddToLeafNode`.
 
 #ifndef HIT9_QUADTREE_HPP
 #define HIT9_QUADTREE_HPP
@@ -198,6 +202,9 @@ class Quadtree {
   // Notes that the node is already freed, don't access the memory this node pointing to.
   void SetAfterLeafRemovedCallback(VisitorT cb) { afterLeafRemoved = cb; }
 
+  // Returns the root node.
+  NodeT* GetRootNode() { return root; }
+
   // Build all nodes recursively on an empty quadtree.
   // This build function must be called on an **empty** quadtree,
   // where the word "empty" means that there's no nodes inside this tree.
@@ -292,28 +299,6 @@ class Quadtree {
   // sync the leaf nodes to maintain the potential splitings and mergings.
   void ForceSyncLeafNode(NodeT* leafNode);
 
-  // BatchAdd add multiple objects into the given rectangular range.
-  //
-  // We first find out all the leaf nodes for these positions, and group the objects gona to add by
-  // these nodes. And then for each node:
-  // 1. add the objects those should located within it.
-  // 2. and maintain the whole tree.
-  //
-  //  This is faster than adding the object one by one. It's an "one-node-by-none-node" rather than
-  //  "one-object-by-one-object" operation.
-  void BatchAdd(const std::vector<BatchOperationItemT>& items);
-
-  // BatchClear clears all objects locating inside the given range.
-  // The (x1,y1) and (x2,y2) is the left-top and right-bottom corner positions of the range.
-  //
-  // We first find out all leaf nodes overlapping with this area, and for each node:
-  // 1. we remove the objects locating inside the given rectangle, and remove them from this node.
-  // 2. then maintain the whole tree.
-  //
-  // This is a "one-node-by-none-node" (instead of "one-object-by-one-object") api.
-  // It's faster than removing the object one by one.
-  void BatchClear(int x1, int y1, int x2, int y2);
-
   // BatchAddToLeafNode adds multiple objects into the given leaf node.
   // The caller should guarantee:
   //
@@ -321,9 +306,8 @@ class Quadtree {
   // 2. each given item's (x,y) is inside the leaf node, skipping if this is not satisfied.
   //
   // There's a typical scenario: if the map already contains some objects, we can use this api to
-  // initialize the quadtree. This is faster than adding the object one by one. It's an
-  // "one-node-by-none-node" rather than "one-object-by-one-object" operation. We can just call
-  // something like: BatchAddToLeafNode(Find(0,0), allObjectItems).
+  // initialize the quadtree. This is faster than adding the object one by one. We can just call
+  // something like: BatchAddToLeafNode(GetRootNode(), allObjectItems).
   void BatchAddToLeafNode(NodeT* leafNode, const std::vector<BatchOperationItemT>& items);
 
  private:
@@ -1117,49 +1101,6 @@ void Quadtree<Object, ObjectKeyHasher>::ForceSyncLeafNode(NodeT* leafNode) {
   if (m.find(id) == m.end()) return;
   // only one will happen.
   tryMergeUp(leafNode) || trySplitDown(leafNode);
-}
-
-template <typename Object, typename ObjectKeyHasher>
-void Quadtree<Object, ObjectKeyHasher>::BatchAdd(const std::vector<BatchOperationItemT>& items) {
-  // Find all nodes for these positions.
-  // mp[node] => object items inside it.
-  std::unordered_map<NodeT*, std::vector<BatchOperationItemT*>> mp;
-  for (auto& item : items) {
-    auto node = Find(item.x, item.y);
-    if (node == nullptr) continue;
-    mp[node].push_back(&item);
-  }
-
-  // For each node, add objects to it and maintain.
-  for (auto& [node, itemsOfNode] : mp) {
-    if (itemsOfNode.empty()) continue;
-
-    for (auto item : itemsOfNode) {
-      node->objects.insert({item->x, item->y, item->o});
-      ++numObjects;
-    }
-
-    trySplitDown(node) || tryMergeUp(node);
-  }
-}
-
-template <typename Object, typename ObjectKeyHasher>
-void Quadtree<Object, ObjectKeyHasher>::BatchClear(int x1, int y1, int x2, int y2) {
-  // Query leaf nodes overlapping with given rectangle.
-  std::vector<NodeT*> nodes;
-  VisitorT visitor = [&nodes](NodeT* node) { nodes.push_back(node); };
-  QueryLeafNodesInRange(x1, y1, x2, y2, visitor);
-
-  // For each node:
-  // 1. clear all objects
-  // 2. maintain the tree.
-  for (auto node : nodes) {
-    auto size = node->objects.size();
-    if (size == 0) continue;
-    node->objects.clear();
-    numObjects -= size;
-    trySplitDown(node) || tryMergeUp(node);
-  }
 }
 
 template <typename Object, typename ObjectKeyHasher>
