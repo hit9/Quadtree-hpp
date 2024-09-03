@@ -519,3 +519,20 @@ TEST_CASE("bugfix 50x40 split id correction") {
   REQUIRE(tree.NumLeafNodes() == 1);
   REQUIRE(tree.Depth() == 0);
 }
+
+TEST_CASE("RemoveObjects") {
+  quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
+  quadtree::Quadtree<int> tree(30, 30, ssf);
+  tree.Build();
+  REQUIRE(tree.NumLeafNodes() == 1);
+  REQUIRE(tree.NumObjects() == 0);
+
+  tree.Add(3, 3, 1);
+  tree.Add(3, 3, 2);
+  REQUIRE(tree.NumObjects() == 2);
+  REQUIRE(tree.NumLeafNodes() > 1);
+
+  tree.RemoveObjects(3, 3);
+  REQUIRE(tree.NumObjects() == 0);
+  REQUIRE(tree.NumLeafNodes() == 1);
+}
