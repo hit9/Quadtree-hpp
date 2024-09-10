@@ -4,12 +4,18 @@ install:
 	conan install . --output-folder=build --build=missing -s compiler.cppstd=20 -s build_type=Debug
 
 cmake:
+	@if [ ! -d build ]; then \
+		$(MAKE) install; \
+	fi
 	cd build && cmake .. \
 		-DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake \
 		-DCMAKE_BUILD_TYPE=Debug \
 		-DCMAKE_EXPORT_COMPILE_COMMANDS=1
 
 build: cmake
+	@if [ ! -d build ]; then \
+		$(MAKE) cmake; \
+	fi
 	cd build && make
 
 run:
