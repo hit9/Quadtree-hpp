@@ -1,7 +1,7 @@
 // Optimized quadtrees on grid rectangles in C++.
 // https://github.com/hit9/quadtree-hpp
 //
-// BSD license. Chao Wang, Version: 0.2.2
+// BSD license. Chao Wang, Version: 0.3.0
 //
 // Coordinate conventions:
 //
@@ -16,6 +16,7 @@
 
 // changes
 // ~~~~~~~
+// 0.3.0: **Breaking change**: inverts the coordinates conventions.
 // 0.2.2: Add `RemoveObjects` and `BatchAddToLeafNode`.
 
 #ifndef HIT9_QUADTREE_HPP
