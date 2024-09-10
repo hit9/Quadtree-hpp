@@ -16,7 +16,7 @@ const int N = 80;
 // Grids to render, 0 for empty, 1 for object.
 int GRIDS[N][N];
 
-// QUERY_ANSWER[x][y] => true means the object hits the range query.
+// QUERY_ANSWER[y][x] => true means the object hits the range query.
 int QUERY_ANSWER[N][N];
 
 struct Options {
@@ -265,7 +265,7 @@ int Visualizer::handleInputs() {
           // SDL:
           // x is the horizonal direction,
           // y is the vertical direction.
-          int x = e.button.y / GRID_SIZE, y = e.button.x / GRID_SIZE;
+          int x = e.button.x / GRID_SIZE, y = e.button.y / GRID_SIZE;
           if (qnflag == 1) {  // Quering neighbour.
             qnNode = tree.Find(x, y);
             if (qnNode == nullptr) {  // failure, won't happen
@@ -277,10 +277,10 @@ int Visualizer::handleInputs() {
               qnflag = 2;
             }
           } else {  // Add or Remove objects.
-            GRIDS[x][y] ^= 1;
+            GRIDS[y][x] ^= 1;
             std::string op = "";
             start = std::chrono::high_resolution_clock::now();
-            if (GRIDS[x][y]) {  // added a object
+            if (GRIDS[y][x]) {  // added a object
               tree.Add(x, y, 1);
               op = "added a object";
             } else {
@@ -302,7 +302,7 @@ int Visualizer::handleInputs() {
 
           // Query a range.
           qflag = (++qflag) % 3;
-          int x = e.button.y / GRID_SIZE, y = e.button.x / GRID_SIZE;
+          int x = e.button.x / GRID_SIZE, y = e.button.y / GRID_SIZE;
           switch (qflag) {
             case 0:
               clearQueryRange();
@@ -324,7 +324,7 @@ int Visualizer::handleInputs() {
                 start = std::chrono::high_resolution_clock::now();
                 // Run the query.
                 tree.QueryRange(qx1, qy1, qx2, qy2,
-                                [](int x, int y, int o) { QUERY_ANSWER[x][y] = 1; });
+                                [](int x, int y, int o) { QUERY_ANSWER[y][x] = 1; });
                 end = std::chrono::high_resolution_clock::now();
                 spdlog::info(
                     "Qange query answered done. {}us",
@@ -364,11 +364,10 @@ void Visualizer::draw() {
   // Draw leaf node's rectangles background.
   quadtree::Visitor<int> visitor1 = [this](quadtree::Node<int>* node) -> void {
     if (node->isLeaf) {
-      // SDL coordinates
-      int x = node->y1 * GRID_SIZE;
-      int y = node->x1 * GRID_SIZE;
-      int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
-      int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
+      int x = node->x1 * GRID_SIZE;
+      int y = node->y1 * GRID_SIZE;
+      int w = (node->x2 - node->x1 + 1) * GRID_SIZE;
+      int h = (node->y2 - node->y1 + 1) * GRID_SIZE;
       SDL_Rect rect = {x, y, w, h};
       auto sharing = quadtree::pack(node->d, node->x1, node->y1, options.w, options.h) + node->d;
       auto [r, g, b, a] = colors[sharing % 17];
@@ -397,10 +396,10 @@ void Visualizer::draw() {
   quadtree::Visitor<int> visitor3 = [this](quadtree::Node<int>* node) -> void {
     if (node->isLeaf && qnAns.find(node) != qnAns.end()) {
       // SDL coordinates
-      int x = node->y1 * GRID_SIZE;
-      int y = node->x1 * GRID_SIZE;
-      int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
-      int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
+      int x = node->x1 * GRID_SIZE;
+      int y = node->y1 * GRID_SIZE;
+      int w = (node->x2 - node->x1 + 1) * GRID_SIZE;
+      int h = (node->y2 - node->y1 + 1) * GRID_SIZE;
       SDL_Rect rect = {x, y, w, h};
       // neighbour background red.
       SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
@@ -413,10 +412,10 @@ void Visualizer::draw() {
   quadtree::Visitor<int> visitor2 = [this](quadtree::Node<int>* node) -> void {
     if (node->isLeaf) {
       // SDL coordinates
-      int x = node->y1 * GRID_SIZE;
-      int y = node->x1 * GRID_SIZE;
-      int w = (node->y2 - node->y1 + 1) * GRID_SIZE;
-      int h = (node->x2 - node->x1 + 1) * GRID_SIZE;
+      int x = node->x1 * GRID_SIZE;
+      int y = node->y1 * GRID_SIZE;
+      int w = (node->x2 - node->x1 + 1) * GRID_SIZE;
+      int h = (node->y2 - node->y1 + 1) * GRID_SIZE;
       // Outer liner rectangle (border width 2)
       SDL_Rect rect1 = {x, y, w, h};
       SDL_Rect rect2 = {x + 1, y + 1, w - 2, h - 2};
@@ -434,21 +433,21 @@ void Visualizer::draw() {
   // Draw the query range.
   if (qflag == 1 || qflag == 2) {
     // dark blue highlights the left corner.
-    int x = qy1 * GRID_SIZE, y = qx1 * GRID_SIZE;
+    int x = qx1 * GRID_SIZE, y = qy1 * GRID_SIZE;
     SDL_Rect rect = {x, y, GRID_SIZE, GRID_SIZE};
     SDL_SetRenderDrawColor(renderer, 0, 150, 255, 255);  // dark blue
     SDL_RenderFillRect(renderer, &rect);
   }
   if (qflag == 2) {
     // dark blue highlights the right corner.
-    int x = qy2 * GRID_SIZE, y = qx2 * GRID_SIZE;
+    int x = qx2 * GRID_SIZE, y = qy2 * GRID_SIZE;
     SDL_Rect rect = {x, y, GRID_SIZE, GRID_SIZE};
     SDL_SetRenderDrawColor(renderer, 0, 150, 255, 255);  // dark blue
     SDL_RenderFillRect(renderer, &rect);
 
     // highlights the query range (border 3).
-    SDL_Rect query_range_rect1 = {qy1 * GRID_SIZE, qx1 * GRID_SIZE, (qy2 - qy1 + 1) * GRID_SIZE,
-                                  (qx2 - qx1 + 1) * GRID_SIZE};
+    SDL_Rect query_range_rect1 = {qx1 * GRID_SIZE, qy1 * GRID_SIZE, (qx2 - qx1 + 1) * GRID_SIZE,
+                                  (qy2 - qy1 + 1) * GRID_SIZE};
     SDL_Rect query_range_rect2 = {query_range_rect1.x + 1, query_range_rect1.y + 1,
                                   query_range_rect1.w - 2, query_range_rect1.h - 2};
     SDL_Rect query_range_rect3 = {query_range_rect1.x + 2, query_range_rect1.y + 2,
