@@ -600,12 +600,10 @@ namespace Quadtree
 		if ((k * y3 / h) != (k * y1 / h))
 			--y3;
 
-		// clang-format off
-  node->children[0] = SplitHelper1(d + 1, x1, y1, x3, y3, node->objects, createdLeafNodes);
-  node->children[1] = SplitHelper1(d + 1, x3 + 1, y1, x2, y3, node->objects, createdLeafNodes);
-  node->children[2] = SplitHelper1(d + 1, x1, y3 + 1, x3, y2, node->objects, createdLeafNodes);
-  node->children[3] = SplitHelper1(d + 1, x3 + 1, y3 + 1, x2, y2, node->objects, createdLeafNodes);
-		// clang-format on
+		node->children[0] = SplitHelper1(d + 1, x1, y1, x3, y3, node->objects, createdLeafNodes);
+		node->children[1] = SplitHelper1(d + 1, x3 + 1, y1, x2, y3, node->objects, createdLeafNodes);
+		node->children[2] = SplitHelper1(d + 1, x1, y3 + 1, x3, y2, node->objects, createdLeafNodes);
+		node->children[3] = SplitHelper1(d + 1, x3 + 1, y3 + 1, x2, y2, node->objects, createdLeafNodes);
 
 		// anyway, it's not a leaf node any more.
 		if (node->isLeaf)
@@ -752,38 +750,36 @@ namespace Quadtree
 	// Check if rectangle ((ax1, ay1), (ax2, ay2)) and ((bx1,by1), (bx2, by2)) overlaps.
 	inline bool isOverlap(int ax1, int ay1, int ax2, int ay2, int bx1, int by1, int bx2, int by2)
 	{
-		// clang-format off
-  //  (ax1,ay1)
-  //      +--------------+
-  //   A  |    (bx1,by1) |
-  //      |       +------|-------+
-  //      +-------+------+       |   B
-  //              |    (ax2,ay2) |
-  //              +--------------+ (bx2, by2)
-  //
-  // Ref: https://silentmatt.com/rectangle-intersection/
-  //
-  // ay1 < by2 => A's left boundary is above B's bottom boundary.
-  // ay2 > by1 => A's bottom boundary is below B's upper boundary.
-  //
-  //                ***********  B's upper                      A's upper    -----------
-  //   A's upper    -----------                       OR                     ***********  B's upper
-  //                ***********  B's bottom                     A's bottom   -----------
-  //   A's bottom   -----------                                              ***********  B's bottom
-  //
-  // ax1 < bx2 => A's left boundary is on the left of B's right boundary.
-  // ax2 > bx1 => A's right boundary is on the right of B's left boundary.
-  //
-  //           A's left         A's right                  A's left        A's right
-  //
-  //      *       |       *       |              OR           |       *       |        *
-  //      *       |       *       |                           |       *       |        *
-  //      *       |       *       |                           |       *       |        *
-  //  B's left        B's right                                    B's left          B's right
-  //
-  // We can also see that, swapping the roles of A and B, the formula remains unchanged.
-  //
-		// clang-format on
+		//  (ax1,ay1)
+		//      +--------------+
+		//   A  |    (bx1,by1) |
+		//      |       +------|-------+
+		//      +-------+------+       |   B
+		//              |    (ax2,ay2) |
+		//              +--------------+ (bx2, by2)
+		//
+		// Ref: https://silentmatt.com/rectangle-intersection/
+		//
+		// ay1 < by2 => A's left boundary is above B's bottom boundary.
+		// ay2 > by1 => A's bottom boundary is below B's upper boundary.
+		//
+		//                ***********  B's upper                      A's upper    -----------
+		//   A's upper    -----------                       OR                     ***********  B's upper
+		//                ***********  B's bottom                     A's bottom   -----------
+		//   A's bottom   -----------                                              ***********  B's bottom
+		//
+		// ax1 < bx2 => A's left boundary is on the left of B's right boundary.
+		// ax2 > bx1 => A's right boundary is on the right of B's left boundary.
+		//
+		//           A's left         A's right                  A's left        A's right
+		//
+		//      *       |       *       |              OR           |       *       |        *
+		//      *       |       *       |                           |       *       |        *
+		//      *       |       *       |                           |       *       |        *
+		//  B's left        B's right                                    B's left          B's right
+		//
+		// We can also see that, swapping the roles of A and B, the formula remains unchanged.
+		//
 		//
 		// And we are processing overlapping on integeral coordinates, the (x1,y1) and (x2,y2) are
 		// considered inside the rectangle. so we use <= and >= instead of < and >.
@@ -1131,21 +1127,19 @@ namespace Quadtree
 	// Jump table for: [flag][direction] => {children index (-1 for invalid)}
 	// Checkout the document of function getLeafNodesAtDirection for the flag's meaning.
 	const int GET_LEAF_NODES_AT_DIRECTION_JUMP_TABLE[10][4][2] = {
-		// clang-format off
-    // 0:N       1:E        2:S       3:W
-    {{-1, -1}, {-1, -1}, {-1, -1}, {-1, -1}},  // 0, 0b0000 leaf node
-    {{0,  -1}, {0,  -1}, {0,  -1}, {0,  -1}},  // 1, 0b0001 (0---), single grid
-    {{1,  -1}, {1,  -1}, {1,  -1}, {1,  -1}},  // 2, 0b0010 (-1--), single grid
-    {{2,  -1}, {2,  -1}, {2,  -1}, {2,  -1}},  // 3, 0b0100 (--2-), single grid
-    {{3,  -1}, {3,  -1}, {3,  -1}, {3,  -1}},  // 4, 0b1000 (---3), single grid
-    {{ 0,  1}, {-1,  1}, { 0,  1}, {0,  -1}},  // 5, 0b0011 (01--) horizonal 1x2 grids, [ 0 | 1 ]
-    {{ 2,  3}, {-1,  3}, { 2,  3}, {2,  -1}},  // 6, 0b1100 (--23) horizonal 1x2 grids, [ 2 | 3 ]
-    {{ 0, -1}, { 0,  2}, {-1,  2}, { 0,  2}},  // 7, 0b0101 (0-2-) vertical 2x1 grids [ 0 ]
-                                               //                                     [ 2 ]
-    {{ 1, -1}, { 1,  3}, {-1,  3}, { 1,  3}},  // 8, 0b1010 (-1-3) vertical 2x1 grids [ 1 ]
-                                               //                                     [ 3 ]
-    {{ 0,  1}, { 1,  3}, { 2,  3}, { 0,  2}},  // 9, 0b1111, 4 grids
-		// clang-format on
+		// 0:N       1:E        2:S       3:W
+		{ { -1, -1 }, { -1, -1 }, { -1, -1 }, { -1, -1 } }, // 0, 0b0000 leaf node
+		{ { 0, -1 }, { 0, -1 }, { 0, -1 }, { 0, -1 } },		// 1, 0b0001 (0---), single grid
+		{ { 1, -1 }, { 1, -1 }, { 1, -1 }, { 1, -1 } },		// 2, 0b0010 (-1--), single grid
+		{ { 2, -1 }, { 2, -1 }, { 2, -1 }, { 2, -1 } },		// 3, 0b0100 (--2-), single grid
+		{ { 3, -1 }, { 3, -1 }, { 3, -1 }, { 3, -1 } },		// 4, 0b1000 (---3), single grid
+		{ { 0, 1 }, { -1, 1 }, { 0, 1 }, { 0, -1 } },		// 5, 0b0011 (01--) horizonal 1x2 grids, [ 0 | 1 ]
+		{ { 2, 3 }, { -1, 3 }, { 2, 3 }, { 2, -1 } },		// 6, 0b1100 (--23) horizonal 1x2 grids, [ 2 | 3 ]
+		{ { 0, -1 }, { 0, 2 }, { -1, 2 }, { 0, 2 } },		// 7, 0b0101 (0-2-) vertical 2x1 grids [ 0 ]
+															//                                     [ 2 ]
+		{ { 1, -1 }, { 1, 3 }, { -1, 3 }, { 1, 3 } },		// 8, 0b1010 (-1-3) vertical 2x1 grids [ 1 ]
+															//                                     [ 3 ]
+		{ { 0, 1 }, { 1, 3 }, { 2, 3 }, { 0, 2 } },			// 9, 0b1111, 4 grids
 	};
 
 	const int GET_LEAF_NODES_AT_DIRECTION_MASK_TO_FLAG_TABLE[16] = {
