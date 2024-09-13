@@ -71,7 +71,7 @@ tree.ForEachNode([](Quadtree::Node<Object*>* node) {
 });
 
 // Visit neighbours leaf node at North direction of given node.
-quadtree<Object*>::VisitT visitor = [](Quadtree::Node<Object*>* node) {
+Quadtree<Object*>::VisitT visitor = [](Quadtree::Node<Object*>* node) {
     //...
 };
 tree.FindNeighbourLeafNodes(node, 0, visitor);
