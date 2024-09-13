@@ -30,7 +30,7 @@
 #include <unordered_set> // for std::unordered_set
 #include <vector>
 
-namespace quadtree
+namespace Quadtree
 {
 
 	// The maximum width and height of the entire rectangular region.
@@ -1255,6 +1255,6 @@ namespace quadtree
 		}
 	}
 
-} // namespace quadtree
+} // namespace Quadtree
 
 #endif

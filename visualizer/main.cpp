@@ -5,7 +5,7 @@
 #include <chrono>
 #include <unordered_set>
 
-#include "quadtree.hpp"
+#include "Quadtree.hpp"
 
 // pixels per grid side.
 const int GRID_SIZE = 24;
@@ -38,13 +38,13 @@ int ParseOptionsFromCommandline(int argc, char* argv[], Options& options);
 class Visualizer
 {
 public:
-	Visualizer(quadtree::Quadtree<int>& tree, Options& options);
+	Visualizer(Quadtree::Quadtree<int>& tree, Options& options);
 	int	 Init();
 	void Start();
 	void Destroy();
 
 private:
-	quadtree::Quadtree<int>& tree;
+	Quadtree::Quadtree<int>& tree;
 	Options&				 options;
 	SDL_Window*				 window;
 	SDL_Renderer*			 renderer;
@@ -63,12 +63,12 @@ private:
 	// qnflag = 3: got the direction to query
 	int qnflag = 0;
 	// node to query.
-	quadtree::Node<int>* qnNode = nullptr;
+	Quadtree::Node<int>* qnNode = nullptr;
 	// direction to query
 	int qnDirection = 0;
 	// answers of query neighbours (on qnflag = 3)
-	std::unordered_set<quadtree::Node<int>*> qnAns;
-	quadtree::Visitor<int>					 qnVisitor;
+	std::unordered_set<Quadtree::Node<int>*> qnAns;
+	Quadtree::Visitor<int>					 qnVisitor;
 
 	void draw();
 	int	 handleInputs();
@@ -85,12 +85,12 @@ int main(int argc, char* argv[])
 	if (ParseOptionsFromCommandline(argc, argv, options) != 0)
 		return -1;
 	// Quadtree.
-	quadtree::SplitingStopper ssf = [&options](int w, int h, int n) {
+	Quadtree::SplitingStopper ssf = [&options](int w, int h, int n) {
 		if (options.use_ssf1)
 			return n == 0 || (w * h == n);
 		return (w <= 2 && h <= 2) || (n <= options.max_number_objects_inside_leaf_node);
 	};
-	quadtree::Quadtree<int> tree(options.w, options.h, ssf);
+	Quadtree::Quadtree<int> tree(options.w, options.h, ssf);
 	// Visualizer
 	Visualizer visualizer(tree, options);
 	if (visualizer.Init() != 0)
@@ -139,10 +139,10 @@ int ParseOptionsFromCommandline(int argc, char* argv[], Options& options)
 	return 0;
 }
 
-Visualizer::Visualizer(quadtree::Quadtree<int>& tree, Options& options)
+Visualizer::Visualizer(Quadtree::Quadtree<int>& tree, Options& options)
 	: tree(tree), options(options)
 {
-	qnVisitor = [this](quadtree::Node<int>* node) -> void { qnAns.insert(node); };
+	qnVisitor = [this](Quadtree::Node<int>* node) -> void { qnAns.insert(node); };
 }
 
 int Visualizer::Init()
@@ -414,7 +414,7 @@ const SDL_Color colors[17] = {
 void Visualizer::draw()
 {
 	// Draw leaf node's rectangles background.
-	quadtree::Visitor<int> visitor1 = [this](quadtree::Node<int>* node) -> void {
+	Quadtree::Visitor<int> visitor1 = [this](Quadtree::Node<int>* node) -> void {
 		if (node->isLeaf)
 		{
 			int		 x = node->x1 * GRID_SIZE;
@@ -422,7 +422,7 @@ void Visualizer::draw()
 			int		 w = (node->x2 - node->x1 + 1) * GRID_SIZE;
 			int		 h = (node->y2 - node->y1 + 1) * GRID_SIZE;
 			SDL_Rect rect = { x, y, w, h };
-			auto	 sharing = quadtree::Pack(node->d, node->x1, node->y1, options.w, options.h) + node->d;
+			auto	 sharing = Quadtree::Pack(node->d, node->x1, node->y1, options.w, options.h) + node->d;
 			auto [r, g, b, a] = colors[sharing % 17];
 			SDL_SetRenderDrawColor(renderer, r, g, b, a);
 			SDL_RenderFillRect(renderer, &rect);
@@ -449,7 +449,7 @@ void Visualizer::draw()
 	}
 
 	// Draw Queried neighbours
-	quadtree::Visitor<int> visitor3 = [this](quadtree::Node<int>* node) -> void {
+	Quadtree::Visitor<int> visitor3 = [this](Quadtree::Node<int>* node) -> void {
 		if (node->isLeaf && qnAns.find(node) != qnAns.end())
 		{
 			// SDL coordinates
@@ -467,7 +467,7 @@ void Visualizer::draw()
 		tree.ForEachNode(visitor3);
 
 	// Draw leaf node's border line.
-	quadtree::Visitor<int> visitor2 = [this](quadtree::Node<int>* node) -> void {
+	Quadtree::Visitor<int> visitor2 = [this](Quadtree::Node<int>* node) -> void {
 		if (node->isLeaf)
 		{
 			// SDL coordinates

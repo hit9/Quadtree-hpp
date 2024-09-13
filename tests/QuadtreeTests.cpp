@@ -1,4 +1,4 @@
-#include "quadtree.hpp"
+#include "Quadtree.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <unordered_set>
@@ -6,8 +6,8 @@
 
 TEST_CASE("simple square 8x8")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (w <= 2 && h <= 2) || n <= 1; };
-	quadtree::Quadtree<int>	  tree(8, 8, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (w <= 2 && h <= 2) || n <= 1; };
+	Quadtree::Quadtree<int>	  tree(8, 8, ssf);
 	REQUIRE(tree.NumNodes() == 0);
 	REQUIRE(tree.NumLeafNodes() == 0);
 	REQUIRE(tree.Depth() == 0);
@@ -57,14 +57,14 @@ TEST_CASE("simple square 8x8")
 	auto node3 = tree.Find(10, -1);
 	REQUIRE(node3 == nullptr);
 	// QueryRange (hit 2)
-	quadtree::Objects<int>	   nodes1;
+	Quadtree::Objects<int>	   nodes1;
 	decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({ x, y, o }); };
 	tree.QueryRange(2, 1, 4, 4, c1);
 	REQUIRE(nodes1.size() == 2);
 	REQUIRE(nodes1.find({ 3, 2, 1 }) != nodes1.end());
 	REQUIRE(nodes1.find({ 4, 3, 1 }) != nodes1.end());
 	// QueryRange (hit 0)
-	quadtree::Objects<int>	   nodes2;
+	Quadtree::Objects<int>	   nodes2;
 	decltype(tree)::CollectorT c2 = [&nodes2](int x, int y, int o) { nodes2.insert({ x, y, o }); };
 	tree.QueryRange(1, 4, 5, 5, c2);
 	REQUIRE(nodes2.size() == 0);
@@ -93,8 +93,8 @@ TEST_CASE("simple square 8x8")
 
 TEST_CASE("simple rectangle 7x6")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (w <= 2 && h <= 2) || n <= 1; };
-	quadtree::Quadtree<int>	  tree(7, 6, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (w <= 2 && h <= 2) || n <= 1; };
+	Quadtree::Quadtree<int>	  tree(7, 6, ssf);
 	REQUIRE(tree.NumNodes() == 0);
 	REQUIRE(tree.NumLeafNodes() == 0);
 	REQUIRE(tree.Depth() == 0);
@@ -178,7 +178,7 @@ TEST_CASE("simple rectangle 7x6")
 	REQUIRE(tree.Depth() == 2);
 	REQUIRE(tree.NumObjects() == 7);
 	// Query [(1,1),(4,5)]
-	quadtree::Objects<int>	   nodes1;
+	Quadtree::Objects<int>	   nodes1;
 	decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({ x, y, o }); };
 	tree.QueryRange(1, 1, 4, 5, c1);
 	REQUIRE(nodes1.size() == 4);
@@ -187,7 +187,7 @@ TEST_CASE("simple rectangle 7x6")
 	REQUIRE(nodes1.find({ 3, 3, 1 }) != nodes1.end());
 	REQUIRE(nodes1.find({ 4, 4, 1 }) != nodes1.end());
 	// Query [(4,1),(4,5)]
-	quadtree::Objects<int>	   nodes2;
+	Quadtree::Objects<int>	   nodes2;
 	decltype(tree)::CollectorT c2 = [&nodes2](int x, int y, int o) { nodes2.insert({ x, y, o }); };
 	tree.QueryRange(4, 1, 4, 5, c2);
 	REQUIRE(nodes2.size() == 1);
@@ -223,8 +223,8 @@ TEST_CASE("simple rectangle 7x6")
 TEST_CASE("simple invert-ssf 10x8")
 {
 	// Stop to split if there's no object inside it or all cells are placed with objects.
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(10, 8, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(10, 8, ssf);
 	REQUIRE(tree.NumNodes() == 0);
 	REQUIRE(tree.NumLeafNodes() == 0);
 	REQUIRE(tree.Depth() == 0);
@@ -269,8 +269,8 @@ TEST_CASE("simple invert-ssf 10x8")
 TEST_CASE("simple invert-ssf 7x5")
 {
 	// Stop to split if there's no object inside it or all cells are placed with objects.
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(7, 5, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(7, 5, ssf);
 	REQUIRE(tree.NumNodes() == 0);
 	REQUIRE(tree.NumLeafNodes() == 0);
 	REQUIRE(tree.Depth() == 0);
@@ -296,8 +296,8 @@ TEST_CASE("simple invert-ssf 7x5")
 TEST_CASE("simple invert-ssf 5x8")
 {
 	// Stop to split if there's no object inside it or all cells are placed with objects.
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(5, 8, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(5, 8, ssf);
 	REQUIRE(tree.NumNodes() == 0);
 	REQUIRE(tree.NumLeafNodes() == 0);
 	REQUIRE(tree.Depth() == 0);
@@ -333,17 +333,17 @@ TEST_CASE("hook functions")
 {
 	// cnt is the counter to track leaf nodes.
 	int					   cnt = 0, createdTimes = 0, removedTimes = 0;
-	quadtree::Visitor<int> afterLeafCreated = [&](quadtree::Node<int>* node) {
+	Quadtree::Visitor<int> afterLeafCreated = [&](Quadtree::Node<int>* node) {
 		cnt++;
 		createdTimes++;
 	};
-	quadtree::Visitor<int> afterLeafRemoved = [&](quadtree::Node<int>* node) {
+	Quadtree::Visitor<int> afterLeafRemoved = [&](Quadtree::Node<int>* node) {
 		cnt--;
 		removedTimes++;
 	};
 	// Stop to split if there's no object inside it or all cells are placed with objects.
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(9, 6, ssf, afterLeafCreated, afterLeafRemoved);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(9, 6, ssf, afterLeafCreated, afterLeafRemoved);
 	tree.Build();
 	REQUIRE(cnt == 1);
 	REQUIRE(createdTimes == 1);
@@ -384,8 +384,8 @@ TEST_CASE("hook functions")
 
 TEST_CASE("large 10wx10w")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(1e5, 1e5, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(1e5, 1e5, ssf);
 	tree.Build();
 	tree.Add(0, 0, 1);
 	// Find (0,0)
@@ -398,7 +398,7 @@ TEST_CASE("large 10wx10w")
 	// Add (1e5/2+1,1e5/2+1)
 	tree.Add(1e5 / 2 + 1, 1e5 / 2 + 1, 0);
 	// QueryRange
-	quadtree::Objects<int>	   nodes1;
+	Quadtree::Objects<int>	   nodes1;
 	decltype(tree)::CollectorT c1 = [&nodes1](int x, int y, int o) { nodes1.insert({ x, y, o }); };
 	tree.QueryRange((1e5 / 2) - 1, (1e5 / 2) - 1, (1e5 / 2) + 1, (1e5 / 2) + 1, c1);
 	REQUIRE(nodes1.size() == 2);
@@ -416,8 +416,8 @@ TEST_CASE("large 10wx10w")
 
 TEST_CASE("FindSmallestNodeCoveringRange 12x8")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(12, 8, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(12, 8, ssf);
 	tree.Build();
 	// Add (3,3)
 	tree.Add(3, 3, 0);
@@ -450,15 +450,15 @@ TEST_CASE("FindSmallestNodeCoveringRange 12x8")
 
 TEST_CASE("FindNeighbourLeafNodes 12x6")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(12, 6, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return (n == 0) || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(12, 6, ssf);
 	tree.Build();
 	// Add(5,3)
 	tree.Add(5, 3, 1);
 
 	// Find sourth neighbor of (0,0)'s leaf node
-	std::unordered_set<quadtree::Node<int>*> st1;
-	quadtree::Visitor<int>					 visitor1 = [&](quadtree::Node<int>* node) { st1.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st1;
+	Quadtree::Visitor<int>					 visitor1 = [&](Quadtree::Node<int>* node) { st1.insert(node); };
 	auto									 a = tree.Find(0, 0);
 	tree.FindNeighbourLeafNodes(a, 2, visitor1); // S
 	REQUIRE(st1.size() == 3);
@@ -467,16 +467,16 @@ TEST_CASE("FindNeighbourLeafNodes 12x6")
 	REQUIRE(st1.find(tree.Find(5, 3)) != st1.end());
 
 	// Find north neighbor of (3,3)'s leaf node
-	std::unordered_set<quadtree::Node<int>*> st2;
-	quadtree::Visitor<int>					 visitor2 = [&](quadtree::Node<int>* node) { st2.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st2;
+	Quadtree::Visitor<int>					 visitor2 = [&](Quadtree::Node<int>* node) { st2.insert(node); };
 	auto									 b = tree.Find(3, 3);
 	tree.FindNeighbourLeafNodes(b, 0, visitor2); // N
 	REQUIRE(st2.size() == 1);
 	REQUIRE(st2.find(tree.Find(0, 0)) != st2.end());
 
 	// Find west neighbor of (3,6)'s leaf node.
-	std::unordered_set<quadtree::Node<int>*> st3;
-	quadtree::Visitor<int>					 visitor3 = [&](quadtree::Node<int>* node) { st3.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st3;
+	Quadtree::Visitor<int>					 visitor3 = [&](Quadtree::Node<int>* node) { st3.insert(node); };
 	auto									 c = tree.Find(6, 3);
 	tree.FindNeighbourLeafNodes(c, 3, visitor3); // W
 	REQUIRE(st3.size() == 3);
@@ -485,8 +485,8 @@ TEST_CASE("FindNeighbourLeafNodes 12x6")
 	REQUIRE(st3.find(tree.Find(5, 5)) != st3.end());
 
 	// Find NE (3,0)'s leaf node.
-	std::unordered_set<quadtree::Node<int>*> st4;
-	quadtree::Visitor<int>					 visitor4 = [&](quadtree::Node<int>* node) { st4.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st4;
+	Quadtree::Visitor<int>					 visitor4 = [&](Quadtree::Node<int>* node) { st4.insert(node); };
 	auto									 d = tree.Find(0, 3);
 	tree.FindNeighbourLeafNodes(d, 5, visitor4); // NE
 	REQUIRE(st4.size() == 1);
@@ -494,23 +494,23 @@ TEST_CASE("FindNeighbourLeafNodes 12x6")
 
 	// out of region
 	// Find NW of (0,0)
-	std::unordered_set<quadtree::Node<int>*> st5;
-	quadtree::Visitor<int>					 visitor5 = [&](quadtree::Node<int>* node) { st5.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st5;
+	Quadtree::Visitor<int>					 visitor5 = [&](Quadtree::Node<int>* node) { st5.insert(node); };
 	auto									 e = tree.Find(0, 0);
 	tree.FindNeighbourLeafNodes(e, 4, visitor5); // NW
 	REQUIRE(st5.size() == 0);
 
 	// out of region
 	// Find N of (7,0)
-	std::unordered_set<quadtree::Node<int>*> st6;
-	quadtree::Visitor<int>					 visitor6 = [&](quadtree::Node<int>* node) { st6.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st6;
+	Quadtree::Visitor<int>					 visitor6 = [&](Quadtree::Node<int>* node) { st6.insert(node); };
 	auto									 f = tree.Find(7, 0);
 	tree.FindNeighbourLeafNodes(f, 0, visitor6); // E
 	REQUIRE(st6.size() == 0);
 
 	// Find small node's neighbors
-	std::unordered_set<quadtree::Node<int>*> st7;
-	quadtree::Visitor<int>					 visitor7 = [&](quadtree::Node<int>* node) { st7.insert(node); };
+	std::unordered_set<Quadtree::Node<int>*> st7;
+	Quadtree::Visitor<int>					 visitor7 = [&](Quadtree::Node<int>* node) { st7.insert(node); };
 	auto									 g = tree.Find(3, 4);
 	tree.FindNeighbourLeafNodes(g, 3, visitor7); // W
 	REQUIRE(st7.size() == 1);
@@ -519,8 +519,8 @@ TEST_CASE("FindNeighbourLeafNodes 12x6")
 
 TEST_CASE("bugfix 50x40 split id correction")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(50, 40, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(50, 40, ssf);
 	tree.Build();
 	REQUIRE(tree.NumLeafNodes() == 1);
 	tree.Add(5, 3, 1);
@@ -533,8 +533,8 @@ TEST_CASE("bugfix 50x40 split id correction")
 
 TEST_CASE("RemoveObjects")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(30, 30, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(30, 30, ssf);
 	tree.Build();
 	REQUIRE(tree.NumLeafNodes() == 1);
 	REQUIRE(tree.NumObjects() == 0);
@@ -551,12 +551,12 @@ TEST_CASE("RemoveObjects")
 
 TEST_CASE("BatchAddToLeafNode")
 {
-	quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
-	quadtree::Quadtree<int>	  tree(50, 40, ssf);
+	Quadtree::SplitingStopper ssf = [](int w, int h, int n) { return n == 0 || (w * h == n); };
+	Quadtree::Quadtree<int>	  tree(50, 40, ssf);
 	tree.Build();
 
 	auto										   root = tree.GetRootNode();
-	std::vector<quadtree::BatchOperationItem<int>> items;
+	std::vector<Quadtree::BatchOperationItem<int>> items;
 	items.push_back({ 4, 4, 1 });
 	items.push_back({ 6, 9, 2 });
 	items.push_back({ 7, 10, 3 });
