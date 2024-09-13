@@ -1,4 +1,4 @@
-quadtree.hpp
+Quadtree.hpp
 ============
 
 A quadtree implementation working on a grid rectangle region in C++.
