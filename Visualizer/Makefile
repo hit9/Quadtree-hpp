@@ -14,7 +14,7 @@ cmake:
 
 build:
 	@if [ ! -d Build ]; then \
-		$(MAKE) build; \
+		$(MAKE) cmake; \
 	fi
 	make -C Build
 

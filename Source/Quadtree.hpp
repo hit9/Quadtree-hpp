@@ -16,6 +16,7 @@
 
 // changes
 // ~~~~~~~
+// 0.4.0: **Breaking change**: switch to ue coding style.
 // 0.3.0: **Breaking change**: inverts the coordinates conventions.
 // 0.2.2: Add `RemoveObjects` and `BatchAddToLeafNode`.
 

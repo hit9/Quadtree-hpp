@@ -3,6 +3,8 @@ quadtree.hpp
 
 A quadtree implementation working on a grid rectangle region in C++.
 
+⚠️ Don't use before v1.0.0, API may change.
+
 ## Features
 
 * The tree structure can be adjusted dynamically and incrementally.
@@ -16,14 +18,14 @@ A quadtree implementation working on a grid rectangle region in C++.
 
 | <!-- -->                                           | <!-- -->                                                    |
 | -------------------------------------------------- | ----------------------------------------------------------- |
-| Square: ![](misc/images/quadtree-square.gif)       | Rectangle: ![](misc/images/quadtree-rectangle.gif)          |
+| Square: ![](Misc/images/quadtree-square.gif)       | Rectangle: ![](Misc/images/quadtree-rectangle.gif)          |
 
 
 中文博客: https://writings.sh/post/quadtree
 
 ## Installation
 
-Copy away `quadtree.hpp`.
+Copy away `Source/Quadtree.hpp`.
 
 Requirements: `>=C++17`
 
@@ -36,12 +38,12 @@ struct Object {...};
 // Creates a function, it stops to split the leaf node when:
 // 1. its width and height are both not larger than 2.
 // 2. or the number of managed objects not larger than 3.
-quadtree::SplitingStopper ssf = [](int w, int h, int n) {
+Quadtree::SplitingStopper ssf = [](int w, int h, int n) {
   return (w <= 2 && h <= 2) || (n <= 3);
 };
 
 // Creates a tree on a 30x30 grid region.
-quadtree::Quadtree<Object*> tree(30, 30, ssf);
+Quadtree::Quadtree<Object*> tree(30, 30, ssf);
 
 // Build the tree.
 tree.Build();
@@ -58,7 +60,7 @@ tree.QueryRange(x1, y1, x2, y2, [](int x, int y, Object* o) {
 });
 
 // Visit every leaf node.
-tree.ForEachNode([](quadtree::Node<Object*>* node) {
+tree.ForEachNode([](Quadtree::Node<Object*>* node) {
   if (node->isLeaf) {
     // if node is a leaf, visit its objects
     for (auto [x, y, o]: node->objects) {
@@ -69,7 +71,7 @@ tree.ForEachNode([](quadtree::Node<Object*>* node) {
 });
 
 // Visit neighbours leaf node at North direction of given node.
-quadtree<Object*>::VisitT visitor = [](quadtree::Node<Object*>* node) {
+quadtree<Object*>::VisitT visitor = [](Quadtree::Node<Object*>* node) {
     //...
 };
 tree.FindNeighbourLeafNodes(node, 0, visitor);
@@ -80,7 +82,7 @@ tree.FindNeighbourLeafNodes(node, 0, visitor);
 1. Enter the directory [visualizer](visualizer)
 
    ```bash
-   cd visualizer
+   cd Visualizer
    ```
 
 2. Make sure [conan](https://conan.io/) has been installed, then install the requirements (SDL etc.):
@@ -99,7 +101,7 @@ tree.FindNeighbourLeafNodes(node, 0, visitor);
 4. Run the program on a `30x30` grid region:
 
    ```bash
-   ./build/quadtree-visualizer -w 30 -h 30
+   ./build/QuadtreeVisualizer -w 30 -h 30
    ```
 
 Visualizer's operations:
@@ -125,7 +127,7 @@ Visualizer's operations:
        ```
     4. Press key `n` again to or just press `ESC` to clear the highlighting.
 
-    ![](misc/images/quadtree-find-neighbours-demo.jpg)
+    ![](Misc/images/quadtree-find-neighbours-demo.jpg)
 
 
 ### License
