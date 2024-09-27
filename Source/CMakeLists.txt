@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(Quadtree)
-set(CMAKE_CXX_STANDARD 20)
 
 add_library(Quadtree INTERFACE)
 set_target_properties(Quadtree PROPERTIES PUBLIC_HEADER "Quadtree.hpp")

@@ -1,7 +1,7 @@
 default: build
 
 install:
-	conan install . --output-folder=Build --build=missing -s compiler.cppstd=20
+	conan install . --output-folder=Build --build=missing
 
 cmake:
 	@if [ ! -d Build ]; then \
