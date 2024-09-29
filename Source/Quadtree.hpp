@@ -16,6 +16,7 @@
 
 // changes
 // ~~~~~~~
+// 0.4.1: Limit query range AABB box to winth th grid for QueryRange and QueryLeafNodesInRange.
 // 0.4.0: **Breaking change**: switch to ue coding style.
 // 0.3.0: **Breaking change**: inverts the coordinates conventions.
 // 0.2.2: Add `RemoveObjects` and `BatchAddToLeafNode`.
@@ -251,6 +252,7 @@ namespace Quadtree
 		// The parameters (x1,y1) and (x2,y2) are the left-top and right-bottom corners of the given
 		// rectangle.
 		// Does nothing if x1 <= x2 && y1 <= y2 is not satisfied.
+		// We will limit the query range to within the valid grid.
 		//
 		// We first locate the smallest node that encloses the given rectangular range, and then query
 		// its descendant leaf nodes overlapping with this range recursively, and finally collects the
@@ -265,6 +267,8 @@ namespace Quadtree
 		//
 		// Does nothing if x1 <= x2 && y1 <= y2 is not satisfied. The internal implementation is the same
 		// to QueryRange.
+		//
+		// We will limit the query range to within the valid grid.
 		void QueryLeafNodesInRange(int x1, int y1, int x2, int y2, VisitorT& collector) const;
 		void QueryLeafNodesInRange(int x1, int y1, int x2, int y2, VisitorT&& collector) const;
 
@@ -987,6 +991,10 @@ namespace Quadtree
 	{
 		if (!(x1 <= x2 && y1 <= y2))
 			return;
+
+		x1 = std::max(x1, 0), y1 = std::max(y1, 0);
+		x2 = std::min(x2, w - 1), y2 = std::min(y2, h - 1);
+
 		auto node = FindSmallestNodeCoveringRange(x1, y1, x2, y2);
 		if (node == nullptr)
 			node = root;
@@ -1007,6 +1015,10 @@ namespace Quadtree
 	{
 		if (!(x1 <= x2 && y1 <= y2))
 			return;
+
+		x1 = std::max(x1, 0), y1 = std::max(y1, 0);
+		x2 = std::min(x2, w - 1), y2 = std::min(y2, h - 1);
+
 		auto node = FindSmallestNodeCoveringRange(x1, y1, x2, y2);
 		if (node == nullptr)
 			node = root;
