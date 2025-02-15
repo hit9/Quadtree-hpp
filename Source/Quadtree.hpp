@@ -16,7 +16,7 @@
 
 // changes
 // ~~~~~~~
-// 0.4.1: Limit query range AABB box to winth th grid for QueryRange and QueryLeafNodesInRange.
+// 0.4.1: Limit query range AABB box to the lowest grid that conver it for QueryRange and QueryLeafNodesInRange.
 // 0.4.0: **Breaking change**: switch to ue coding style.
 // 0.3.0: **Breaking change**: inverts the coordinates conventions.
 // 0.2.2: Add `RemoveObjects` and `BatchAddToLeafNode`.
@@ -261,7 +261,7 @@ namespace Quadtree
 		void QueryRange(int x1, int y1, int x2, int y2, CollectorT& collector) const;
 		void QueryRange(int x1, int y1, int x2, int y2, CollectorT&& collector) const;
 
-		// Quert the leaf nodes overlapping with  given rectangular range, the given visitor will be
+		// Query the leaf nodes overlapping with  given rectangular range, the given visitor will be
 		// called for each leaf nodes hits. The parameters (x1,y1) and (x2,y2) are the left-top and
 		// right-bottom corners of the given rectangle.
 		//
