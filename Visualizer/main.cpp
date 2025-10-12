@@ -1,5 +1,5 @@
 #include <SDL2/SDL.h>
-#include <spdlog/spdlog.h>
+#include <fmt/base.h>
 
 #include <argparse/argparse.hpp>
 #include <chrono>
@@ -128,12 +128,12 @@ int ParseOptionsFromCommandline(int argc, char* argv[], Options& options)
 	}
 	catch (const std::exception& e)
 	{
-		spdlog::error(e.what());
+		fmt::println("Error: {}", e.what());
 		return 1;
 	}
 	if (options.w > N || options.h > N)
 	{
-		spdlog::error("w or h is too large to render a window");
+		fmt::println("w or h is too large to render a window");
 		return 2;
 	}
 	return 0;
@@ -150,7 +150,7 @@ int Visualizer::Init()
 	// Init SDL
 	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
 	{
-		spdlog::error("SDL init error: {}", SDL_GetError());
+		fmt::println("SDL init error: {}", SDL_GetError());
 		return -1;
 	}
 	// Creates window.
@@ -160,7 +160,7 @@ int Visualizer::Init()
 		window_w, window_h, SDL_WINDOW_SHOWN);
 	if (window == nullptr)
 	{
-		spdlog::error("Create window error: {}", SDL_GetError());
+		fmt::println("Create window error: {}", SDL_GetError());
 		SDL_Quit();
 		return -3;
 	}
@@ -168,15 +168,15 @@ int Visualizer::Init()
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
 	if (renderer == nullptr)
 	{
-		spdlog::error("Create renderer error: {}", SDL_GetError());
+		fmt::println("Create renderer error: {}", SDL_GetError());
 		SDL_DestroyWindow(window);
 		SDL_Quit();
 		return -1;
 	}
 	// Build the tree.
-	spdlog::info("Visualizer init done");
+	fmt::println("Visualizer init done");
 	tree.Build();
-	spdlog::info("quadtree build done");
+	fmt::println("quadtree build done");
 	return 0;
 }
 
@@ -192,7 +192,7 @@ void Visualizer::clearQueryRange()
 	qflag = 0;
 	qx1 = qy1 = qx2 = qy2 = -1;
 	memset(QUERY_ANSWER, 0, sizeof QUERY_ANSWER);
-	spdlog::info("Clear the range query");
+	fmt::println("Clear the range query");
 }
 
 void Visualizer::clearQueryNeighbours()
@@ -201,7 +201,7 @@ void Visualizer::clearQueryNeighbours()
 	qnNode = nullptr;
 	qnDirection = 0;
 	qnAns.clear();
-	spdlog::info("Clear the neighbour query");
+	fmt::println("Clear the neighbour query");
 }
 
 void Visualizer::Start()
@@ -237,19 +237,19 @@ int Visualizer::handleInputs()
 				{
 					clearQueryNeighbours();
 					clearQueryRange();
-					spdlog::info("ESC : clear all queries...");
+					fmt::println("ESC : clear all queries...");
 					return 0;
 				}
 				if (e.key.keysym.sym == SDLK_c && SDL_GetModState() & KMOD_CTRL)
 				{ // Ctrl-C
-					spdlog::info("Ctrl-C : quit...");
+					fmt::println("Ctrl-C : quit...");
 					return -1;
 				}
 				if (e.key.keysym.sym == SDLK_n)
 				{
 					if (qnflag == 0)
 					{
-						spdlog::info("'n' is pressed, start quering neighbour, click mouse to select a node");
+						fmt::println("'n' is pressed, start quering neighbour, click mouse to select a node");
 						qnflag = 1;
 					}
 					else
@@ -276,14 +276,14 @@ int Visualizer::handleInputs()
 							tree.FindNeighbourLeafNodes(qnNode, qnDirection, qnVisitor);
 							end = std::chrono::high_resolution_clock::now();
 							qnflag = 3;
-							spdlog::info(
+							fmt::println(
 								"Query the neighbour on the direction {} done, {} neighbours. {}us", qnDirection,
 								qnAns.size(),
 								std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 							break;
 						default:
 							clearQueryNeighbours();
-							spdlog::info("Unknown direction input, the neighbour query cleared!");
+							fmt::println("Unknown direction input, the neighbour query cleared!");
 							break;
 					}
 				}
@@ -306,12 +306,12 @@ int Visualizer::handleInputs()
 						qnNode = tree.Find(x, y);
 						if (qnNode == nullptr)
 						{ // failure, won't happen
-							spdlog::warn("selected node is not found, back to normal");
+							fmt::println("selected node is not found, back to normal");
 							qnflag = 0;
 						}
 						else
 						{
-							spdlog::info(
+							fmt::println(
 								"selected node to query neighbours, please press a direction number. (0~7)");
 							qnflag = 2;
 						}
@@ -332,7 +332,7 @@ int Visualizer::handleInputs()
 							op = "removed a object";
 						}
 						end = std::chrono::high_resolution_clock::now();
-						spdlog::info(
+						fmt::println(
 							"Mouse left button clicked, {}, number of leaf nodes: {}, depth: "
 							"{}, time: {}us",
 							op, tree.NumLeafNodes(), tree.Depth(),
@@ -358,16 +358,16 @@ int Visualizer::handleInputs()
 						case 1:
 							qx1 = x;
 							qy1 = y;
-							spdlog::info("Set query range rectangle left-upper corner");
+							fmt::println("Set query range rectangle left-upper corner");
 							break;
 						case 2:
 							qx2 = x;
 							qy2 = y;
-							spdlog::info("Set query range rectangle right-bottom corner");
+							fmt::println("Set query range rectangle right-bottom corner");
 							// Ensure the qx2 >= qx1 and qy2 >= qy1
 							if (!(qx1 <= qx2 && qy1 <= qy2 && qx1 >= 0 && qy1 >= 0))
 							{
-								spdlog::info("Invalid Range! Reset!");
+								fmt::println("Invalid Range! Reset!");
 								clearQueryRange();
 							}
 							else
@@ -377,7 +377,7 @@ int Visualizer::handleInputs()
 								tree.QueryRange(qx1, qy1, qx2, qy2,
 									[](int x, int y, int o) { QUERY_ANSWER[y][x] = 1; });
 								end = std::chrono::high_resolution_clock::now();
-								spdlog::info(
+								fmt::println(
 									"Qange query answered done. {}us",
 									std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
 							}

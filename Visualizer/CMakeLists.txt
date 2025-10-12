@@ -9,10 +9,10 @@ file(GLOB SOURCES *.cpp)
 add_executable(QuadtreeVisualizer ${SOURCES})
 
 find_package(SDL2)
-find_package(spdlog)
+find_package(fmt)
 find_package(argparse)
 
 include_directories("../Source")
 
-target_link_libraries(QuadtreeVisualizer SDL2::SDL2main spdlog::spdlog
+target_link_libraries(QuadtreeVisualizer SDL2::SDL2main fmt::fmt
                       argparse::argparse)
