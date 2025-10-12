@@ -21,7 +21,7 @@ A quadtree implementation working on a grid rectangle region in C++.
 | Square: ![](Misc/images/quadtree-square.gif)       | Rectangle: ![](Misc/images/quadtree-rectangle.gif)          |
 
 
-中文博客: https://writings.sh/post/quadtree
+中文博客: https://hit9.dev/post/quadtree
 
 ## Installation
 
